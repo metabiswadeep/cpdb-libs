@@ -72,21 +72,6 @@
             <arg name="locale" direction="in" type="s" />
             <arg name="translations" direction="out" type="a{ss}" />
         </method>
-        <method name="getActiveJobsCount">
-            <arg name="printer_id" direction="in" type="s"/>
-            <arg name="job_count" direction="out" type="i"/>
-        </method>
-        <method name="getAllJobs">
-            <arg name="active_only" direction="in" type="b"/>
-            <arg name="num_jobs" direction="out" type="i"/>
-            <arg name="jobs" direction="out" type="a(ssssssi)"/>
-            <!--job contents: job-id , title, printer-id, user, state , submitted at(time string) , size -->
-        </method>
-        <method name="cancelJob">
-            <arg name="job_id" direction="in" type="s"/>
-            <arg name="printer_id" direction="in" type="s"/>
-            <arg name="status" direction="out" type="b"/>
-        </method>
         <method name="printFile">
             <arg name="printer_id" direction="in" type="s" />
             <arg name="file_path_name" direction="in" type="s"/>

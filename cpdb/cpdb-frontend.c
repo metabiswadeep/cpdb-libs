@@ -764,78 +764,6 @@ int cpdbSetSystemDefaultPrinter(cpdb_printer_obj_t *p)
     free(conf_dir);
     return ret;
 }
-
-int cpdbGetAllJobs(cpdb_frontend_obj_t *f,
-                   cpdb_job_t **j,
-                   gboolean active_only)
-{
-    
-	/**inititalizing the arrays required for each of the backends **/
-	
-    /** num_jobs[] stores the number of jobs for each of the backends**/
-    int *num_jobs = g_new(int, f->num_backends);
-    
-    /**backend_names[] stores the name for each of the backends**/
-    char **backend_names = g_new0(char *, f->num_backends);
-    
-    /**retval[] stores the gvariant returned by the respective backend **/
-    GVariant **retval = g_new(GVariant *, f->num_backends);
-    
-    GError *error = NULL;
-    gpointer key, value;
-    GHashTableIter iter;
-    int i = 0, total_jobs = 0;
- 
-    /** Iterating over all the backends and getting each's active jobs**/
-    g_hash_table_iter_init(&iter, f->backend);
-    while (g_hash_table_iter_next(&iter, &key, &value))
-    {
-        PrintBackend *proxy = (PrintBackend *)value;
-        
-        backend_names[i] = (char *)key;
-        print_backend_call_get_all_jobs_sync(proxy,
-                                             active_only,
-                                             &(num_jobs[i]),
-                                             &(retval[i]),
-                                             NULL,
-                                             &error);
-        
-        if(error)
-        {
-            logerror("Error gettings jobs for backend %s : %s\n",
-                        backend_names[i], error->message);
-        	num_jobs[i] = 0;
-        	
-        }
-        else
-        {
-        	logdebug("Obtained %d jobs for backend %s\n",
-                        num_jobs[i], backend_names[i]);
-        }
-        
-        total_jobs += num_jobs[i];
-        i++; /** off to the next backend **/
-    }
-    
-    int n = 0;
-    cpdb_job_t *jobs = g_new(cpdb_job_t, total_jobs);
-    for (i = 0; i < f->num_backends; i++)
-    {
-    	if(num_jobs[i])
-        {
-    		cpdbUnpackJobArray(retval[i],
-                               num_jobs[i],
-                               jobs + n,
-                               backend_names[i]);
-        }
-        n += num_jobs[i];
-    }
-    *j = jobs;
-
-    free(num_jobs);
-    return total_jobs;
-}
-
 /**
 ________________________________________________ cpdb_printer_obj_t __________________________________________
 **/
@@ -947,46 +875,6 @@ char *cpdbGetState(cpdb_printer_obj_t *p)
     return p->state;
 }
 
-cpdb_options_t *cpdbGetAllOptions(cpdb_printer_obj_t *p)
-{
-    if (p == NULL) 
-    {
-        logwarn("Invalid params: cpdbGetAllOptions()\n");
-        return NULL;
-    }
-
-    /** 
-     * If the options were previously queried, 
-     * return them, instead of querying again.
-    */
-    if (p->options)
-        return p->options;
-
-    GError *error = NULL;
-    int num_options, num_media;
-    GVariant *var, *media_var;
-    print_backend_call_get_all_options_sync(p->backend_proxy,
-                                            p->id,
-                                            &num_options,
-                                            &var,
-                                            &num_media,
-                                            &media_var,
-                                            NULL,
-                                            &error);
-    if (error)
-    {
-        logerror("Error getting printer options for %s %s : %s\n",
-                    p->id, p->backend_name, error->message);
-        return NULL;
-    }
-
-    loginfo("Obtained %d options and %d media for %s %s\n",
-            num_options, num_media, p->id, p->backend_name);
-    p->options = cpdbGetNewOptions();
-    cpdbUnpackOptions(num_options, var, num_media, media_var, p->options);
-    return p->options;
-}
-
 cpdb_option_t *cpdbGetOption(cpdb_printer_obj_t *p,
                              const char *name)
 {
@@ -1037,28 +925,6 @@ char *cpdbGetCurrent(cpdb_printer_obj_t *p,
         return set;
 
     return cpdbGetDefault(p, name);
-}
-
-int cpdbGetActiveJobsCount(cpdb_printer_obj_t *p)
-{
-    int count;
-    GError *error = NULL;
-    
-    print_backend_call_get_active_jobs_count_sync(p->backend_proxy,
-                                                  p->id,
-                                                  &count,
-                                                  NULL,
-                                                  &error);
-    if (error)
-    {
-        logerror("Error getting active jobs count for % %s : %s\n",
-                    p->id, p->backend_name, error->message);
-        return -1;
-    }
-    
-    logdebug("Obtained %d active jobs for %s %s\n", count, 
-                p->id, p->backend_name);
-    return count;
 }
 
 static void cpdbDebugPrintSettings(cpdb_settings_t *s)
@@ -1179,30 +1045,6 @@ gboolean cpdbClearSettingFromPrinter(cpdb_printer_obj_t *p,
         return FALSE;
     }
     return cpdbClearSetting(p->settings, name);
-}
-
-gboolean cpdbCancelJob(cpdb_printer_obj_t *p,
-                       const char *job_id)
-{
-    gboolean status;
-    GError *error = NULL;
-    
-    print_backend_call_cancel_job_sync(p->backend_proxy,
-                                       job_id,
-                                       p->id,
-                                       &status,
-                                       NULL,
-                                       &error);
-    if (error)
-    {
-        logerror("Error cancelling job %s on %s %s\n", 
-                    job_id, p->id, p->backend_name, error->message);
-        return FALSE;
-    }
-    
-    logdebug("Obtained status=%d for cancelling job %s on %s %s\n",
-                status, job_id, p->id, p->backend_name);
-    return status;
 }
 
 void cpdbPicklePrinterToFile(cpdb_printer_obj_t *p,
