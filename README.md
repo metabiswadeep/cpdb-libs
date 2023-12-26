@@ -24,11 +24,11 @@ On Debian based distros, these can be installed by running: \
 ## Build and installation
 
 
-    $ ./autogen.sh
-    $ ./configure
-    $ make
-    $ sudo make install
-    $ sudo ldconfig
+    ./autogen.sh
+    ./configure
+    make
+    sudo make install
+    sudo ldconfig
 
 Also install at least one of the backends (cpdb-backend-...).
 
