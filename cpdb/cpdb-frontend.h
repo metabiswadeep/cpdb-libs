@@ -376,16 +376,10 @@ char *cpdbGetCurrent(cpdb_printer_obj_t *printer_obj, const char *option_name);
  */
 char *cpdbPrintFile(cpdb_printer_obj_t *printer_obj, const char *file_path);
 
-/**
- * Submit file for printing to another file, using the settings set previously.
- * 
- * @param printer_obj       Printer object 
- * @param file_path         Path of file to print
- * @param final_file_path   Final path to print to
- * 
- * @return                  Job ID if created, NULL otherwise
- */
-char *cpdbPrintFilePath(cpdb_printer_obj_t *printer_obj, const char *file_path, const char *final_file_path);
+int cpdbPrintFD(cpdb_printer_obj_t *p, char *jobid);
+
+char *cpdbPrintSocket(cpdb_printer_obj_t *printer_obj, char *jobid);
+
 
 /**
  * Set an option value for a printer.

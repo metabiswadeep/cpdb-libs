@@ -884,7 +884,6 @@ cpdb_option_t *cpdbGetOption(cpdb_printer_obj_t *p,
         return NULL;
     }
 
-    cpdbGetAllOptions(p);
     return (cpdb_option_t *)(g_hash_table_lookup(p->options->table, name));
 }
 
@@ -942,85 +941,86 @@ static void cpdbDebugPrintSettings(cpdb_settings_t *s)
 char *cpdbPrintFile(cpdb_printer_obj_t *p,
                     const char *file_path)
 {
-    char *jobid, *absolute_file_path;
-    GError *error = NULL;
-    
-    absolute_file_path = cpdbGetAbsolutePath(file_path);
-    logdebug("Printing file %s on %s %s\n",
-                absolute_file_path, p->id, p->backend_name);
+    char *jobid;
+    int fd = cpdbPrintFD(p, jobid);
+
+    FILE *file = fopen(file_path, "r");
+    if (file == NULL) {
+        perror("Error opening file");
+        close(fd);
+        logerror("Error opening file %s on %s %s : No such file found\n", 
+                    file_path, p->id, p->backend_name);
+        return NULL;
+    }
+
+    char buffer[1024];
+    size_t bytesRead;
+
+    while ((bytesRead = fread(buffer, 1, sizeof(buffer), file)) > 0) {
+        write(fd, buffer, bytesRead);
+    }
+
+    fclose(file);
+    close(fd);
+
+    return jobid;
+}
+
+
+int cpdbPrintFD(cpdb_printer_obj_t *p,
+                    char *jobid)
+{
+    char *socket = cpdbPrintSocket(p, jobid);
+
+    int fd = open(socket, O_WRONLY);
+    if (fd == -1) {
+        logerror("Error creating fd on %s %s\n", 
+                    p->id, p->backend_name);
+        return NULL;
+    }
+    return fd;
+}
+
+char *cpdbPrintSocket(cpdb_printer_obj_t *p,
+                    char *jobid)
+{
+    char *socket;
+    GError *error = NULL;   
     cpdbDebugPrintSettings(p->settings);
     print_backend_call_print_file_sync(p->backend_proxy,
                                        p->id,
-                                       absolute_file_path,
                                        p->settings->count,
                                        cpdbSerializeToGVariant(p->settings),
-                                       "final-file-path-not-required",
                                        &jobid,
+                                       &socket,
                                        NULL,
                                        &error);
                                        
     if (error)
     {
-        logerror("Error printing file %s on %s %s : %s\n", 
-                    absolute_file_path, p->id, p->backend_name, error->message);
+        logerror("Error opening socket on %s %s : %s\n", 
+                    p->id, p->backend_name, error->message);
         return NULL;
     }
     
     if (jobid == NULL || jobid == "")
     {
-        logerror("Error printing file %s on %s %s : Couldn't create a job\n", 
-                    absolute_file_path, p->id, p->backend_name);
+        logerror("Error while trying to create a job on %s %s: Couldn't create a job\n", 
+                    p->id, p->backend_name);
         return NULL;
     }
-    
-    loginfo("File %s sent for printing on %s %s successfully\n",
-                absolute_file_path, p->id, p->backend_name);
-    cpdbSaveSettingsToDisk(p->settings);
-    free(absolute_file_path);
-    return jobid;
-}
 
-char *cpdbPrintFilePath(cpdb_printer_obj_t *p,
-                        const char *file_path,
-                        const char *final_file_path)
-{
-    char *result, *absolute_file_path, *absolute_final_file_path;
-    GError *error = NULL;
-    
-    absolute_file_path = cpdbGetAbsolutePath(file_path);
-    absolute_final_file_path = cpdbGetAbsolutePath(final_file_path);
-    logdebug("Printing file %s on %s %s to %s\n",
-                absolute_file_path, p->id, p->backend_name, absolute_final_file_path);
-    cpdbDebugPrintSettings(p->settings);
-    print_backend_call_print_file_sync(p->backend_proxy,
-                                       p->id,
-                                       absolute_file_path,
-                                       p->settings->count,
-                                       cpdbSerializeToGVariant(p->settings),
-                                       absolute_final_file_path,
-                                       &result,
-                                       NULL,
-                                       &error);
-    
-    if (error)
+    if (socket == NULL || socket == "")
     {
-        logerror("Error printing file %s to %s : %s\n", 
-                 absolute_file_path, absolute_final_file_path, error->message);
+        logerror("Error opening socket on %s %s: Couldn't create a socket\n", 
+                    p->id, p->backend_name);
         return NULL;
     }
     
-    if (result == NULL)
-    {
-        logerror("Error printing file %s to %s\n", 
-                 absolute_file_path, absolute_final_file_path);
-        return NULL;
-    }
-    
-    loginfo("File %s printed to %s successfully\n",
-                absolute_file_path, absolute_final_file_path);
-    free(absolute_file_path);
-    free(absolute_final_file_path);
-    return result;
+    loginfo("Socket opened for %s %s successfully\n",
+                p->id, p->backend_name);
+    cpdbSaveSettingsToDisk(p->settings);
+    return socket;
 }
 
 void cpdbAddSettingToPrinter(cpdb_printer_obj_t *p,
@@ -1403,7 +1403,6 @@ void cpdbGetAllTranslations(cpdb_printer_obj_t *p,
 cpdb_media_t *cpdbGetMedia(cpdb_printer_obj_t *p,
                            const char *media)
 {
-    cpdbGetAllOptions(p);
     return (cpdb_media_t *) g_hash_table_lookup(p->options->media, media);
 }
 

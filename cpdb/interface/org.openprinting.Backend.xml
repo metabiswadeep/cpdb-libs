@@ -74,12 +74,11 @@
         </method>
         <method name="printFile">
             <arg name="printer_id" direction="in" type="s" />
-            <arg name="file_path_name" direction="in" type="s"/>
             <arg name="num_settings" direction="in" type="i"/>
             <arg name="settings" direction="in" type="a(ss)"/>
-            <arg name="final_file_path" direction="in" type="s" />
             <arg name="jobid" direction="out" type="s" />
-        </method>
+            <arg name="socket" direction="out" type="s" />
+       </method>
         <method name="replace">
             <arg name="previous_dialog_id" direction="in" type="s"/>
         </method>
