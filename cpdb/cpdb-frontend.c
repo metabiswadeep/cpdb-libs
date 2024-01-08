@@ -1,4 +1,5 @@
 #include "cpdb-frontend.h"
+#include <fcntl.h>
 
 static void                 on_printer_added                (GDBusConnection *          connection,
                                                              const gchar *              sender_name,
@@ -987,7 +988,7 @@ char *cpdbPrintSocket(cpdb_printer_obj_t *p,
     char *socket;
     GError *error = NULL;   
     cpdbDebugPrintSettings(p->settings);
-    print_backend_call_print_file_sync(p->backend_proxy,
+    print_backend_call_print_socket_sync(p->backend_proxy,
                                        p->id,
                                        p->settings->count,
                                        cpdbSerializeToGVariant(p->settings),

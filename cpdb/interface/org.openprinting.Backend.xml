@@ -72,7 +72,7 @@
             <arg name="locale" direction="in" type="s" />
             <arg name="translations" direction="out" type="a{ss}" />
         </method>
-        <method name="printFile">
+        <method name="printSocket">
             <arg name="printer_id" direction="in" type="s" />
             <arg name="num_settings" direction="in" type="i"/>
             <arg name="settings" direction="in" type="a(ss)"/>
