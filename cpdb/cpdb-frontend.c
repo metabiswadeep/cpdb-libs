@@ -977,7 +977,7 @@ int cpdbPrintFD(cpdb_printer_obj_t *p,
     if (fd == -1) {
         logerror("Error creating fd on %s %s\n", 
                     p->id, p->backend_name);
-        return NULL;
+        return -1;
     }
     return fd;
 }
