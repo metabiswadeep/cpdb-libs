@@ -1,4 +1,7 @@
 #include "cpdb-frontend.h"
+#include <fcntl.h>
+#include <sys/socket.h>
+#include <sys/un.h>
 
 static void                 on_printer_added                (GDBusConnection *          connection,
                                                              const gchar *              sender_name,
@@ -764,78 +767,6 @@ int cpdbSetSystemDefaultPrinter(cpdb_printer_obj_t *p)
     free(conf_dir);
     return ret;
 }
-
-int cpdbGetAllJobs(cpdb_frontend_obj_t *f,
-                   cpdb_job_t **j,
-                   gboolean active_only)
-{
-    
-	/**inititalizing the arrays required for each of the backends **/
-	
-    /** num_jobs[] stores the number of jobs for each of the backends**/
-    int *num_jobs = g_new(int, f->num_backends);
-    
-    /**backend_names[] stores the name for each of the backends**/
-    char **backend_names = g_new0(char *, f->num_backends);
-    
-    /**retval[] stores the gvariant returned by the respective backend **/
-    GVariant **retval = g_new(GVariant *, f->num_backends);
-    
-    GError *error = NULL;
-    gpointer key, value;
-    GHashTableIter iter;
-    int i = 0, total_jobs = 0;
- 
-    /** Iterating over all the backends and getting each's active jobs**/
-    g_hash_table_iter_init(&iter, f->backend);
-    while (g_hash_table_iter_next(&iter, &key, &value))
-    {
-        PrintBackend *proxy = (PrintBackend *)value;
-        
-        backend_names[i] = (char *)key;
-        print_backend_call_get_all_jobs_sync(proxy,
-                                             active_only,
-                                             &(num_jobs[i]),
-                                             &(retval[i]),
-                                             NULL,
-                                             &error);
-        
-        if(error)
-        {
-            logerror("Error gettings jobs for backend %s : %s\n",
-                        backend_names[i], error->message);
-        	num_jobs[i] = 0;
-        	
-        }
-        else
-        {
-        	logdebug("Obtained %d jobs for backend %s\n",
-                        num_jobs[i], backend_names[i]);
-        }
-        
-        total_jobs += num_jobs[i];
-        i++; /** off to the next backend **/
-    }
-    
-    int n = 0;
-    cpdb_job_t *jobs = g_new(cpdb_job_t, total_jobs);
-    for (i = 0; i < f->num_backends; i++)
-    {
-    	if(num_jobs[i])
-        {
-    		cpdbUnpackJobArray(retval[i],
-                               num_jobs[i],
-                               jobs + n,
-                               backend_names[i]);
-        }
-        n += num_jobs[i];
-    }
-    *j = jobs;
-
-    free(num_jobs);
-    return total_jobs;
-}
-
 /**
 ________________________________________________ cpdb_printer_obj_t __________________________________________
 **/
@@ -947,46 +878,6 @@ char *cpdbGetState(cpdb_printer_obj_t *p)
     return p->state;
 }
 
-cpdb_options_t *cpdbGetAllOptions(cpdb_printer_obj_t *p)
-{
-    if (p == NULL) 
-    {
-        logwarn("Invalid params: cpdbGetAllOptions()\n");
-        return NULL;
-    }
-
-    /** 
-     * If the options were previously queried, 
-     * return them, instead of querying again.
-    */
-    if (p->options)
-        return p->options;
-
-    GError *error = NULL;
-    int num_options, num_media;
-    GVariant *var, *media_var;
-    print_backend_call_get_all_options_sync(p->backend_proxy,
-                                            p->id,
-                                            &num_options,
-                                            &var,
-                                            &num_media,
-                                            &media_var,
-                                            NULL,
-                                            &error);
-    if (error)
-    {
-        logerror("Error getting printer options for %s %s : %s\n",
-                    p->id, p->backend_name, error->message);
-        return NULL;
-    }
-
-    loginfo("Obtained %d options and %d media for %s %s\n",
-            num_options, num_media, p->id, p->backend_name);
-    p->options = cpdbGetNewOptions();
-    cpdbUnpackOptions(num_options, var, num_media, media_var, p->options);
-    return p->options;
-}
-
 cpdb_option_t *cpdbGetOption(cpdb_printer_obj_t *p,
                              const char *name)
 {
@@ -996,7 +887,6 @@ cpdb_option_t *cpdbGetOption(cpdb_printer_obj_t *p,
         return NULL;
     }
 
-    cpdbGetAllOptions(p);
     return (cpdb_option_t *)(g_hash_table_lookup(p->options->table, name));
 }
 
@@ -1039,28 +929,6 @@ char *cpdbGetCurrent(cpdb_printer_obj_t *p,
     return cpdbGetDefault(p, name);
 }
 
-int cpdbGetActiveJobsCount(cpdb_printer_obj_t *p)
-{
-    int count;
-    GError *error = NULL;
-    
-    print_backend_call_get_active_jobs_count_sync(p->backend_proxy,
-                                                  p->id,
-                                                  &count,
-                                                  NULL,
-                                                  &error);
-    if (error)
-    {
-        logerror("Error getting active jobs count for % %s : %s\n",
-                    p->id, p->backend_name, error->message);
-        return -1;
-    }
-    
-    logdebug("Obtained %d active jobs for %s %s\n", count, 
-                p->id, p->backend_name);
-    return count;
-}
-
 static void cpdbDebugPrintSettings(cpdb_settings_t *s)
 {
     gpointer key, value;
@@ -1076,85 +944,127 @@ static void cpdbDebugPrintSettings(cpdb_settings_t *s)
 char *cpdbPrintFile(cpdb_printer_obj_t *p,
                     const char *file_path)
 {
-    char *jobid, *absolute_file_path;
-    GError *error = NULL;
-    
-    absolute_file_path = cpdbGetAbsolutePath(file_path);
-    logdebug("Printing file %s on %s %s\n",
-                absolute_file_path, p->id, p->backend_name);
+    const char *title = "";
+    return cpdbPrintFileWithJobTitle(p, file_path, title);
+}
+
+char *cpdbPrintFileWithJobTitle(cpdb_printer_obj_t *p,
+                    const char *file_path, const char *title)
+{
+    char *jobid, *socket_path;
+    int fd = cpdbPrintFD(p, jobid, title, socket_path);
+    if (fd == -1) {
+        logerror("Error connecting to backend for printing file %s on %s %s: %s\n",
+                 file_path, p->id, p->backend_name, strerror(errno));
+        return NULL;
+    }
+
+
+    FILE *file = fopen(file_path, "r");
+    if (file == NULL) {
+        close(fd);
+        logerror("Error opening file %s on %s %s: %s\n",
+                 file_path, p->id, p->backend_name, strerror(errno));
+        return NULL;
+    }
+
+    char buffer[1024];
+    size_t bytesRead;
+
+    while ((bytesRead = fread(buffer, 1, sizeof(buffer), file)) > 0)
+        if (write(fd, buffer, bytesRead) != bytesRead) {
+	    fclose(file);
+            close(fd);
+            unlink(socket_path);
+            logerror("Error sending file %s on %s %s: %s\n",
+                     file_path, p->id, p->backend_name, strerror(errno));
+            return NULL;
+        }
+
+    fclose(file);
+    close(fd);
+    unlink(socket_path);
+
+    return jobid;
+}
+
+
+int cpdbPrintFD(cpdb_printer_obj_t *p,
+                char *jobid, const char *title, char *socket_path)
+{
+    socket_path = cpdbPrintSocket(p, jobid, title);
+    if (socket_path == NULL) {
+        logerror("Error getting socket for job on %s %s: %s\n",
+		 p->id, p->backend_name, strerror(errno));
+        return -1;
+    }
+
+    int fd = socket(AF_UNIX, SOCK_STREAM, 0);
+    if (fd == -1) {
+        logerror("Error creating fd for job %s on %s %s with socket %s: %s\n",
+		 jobid, p->id, p->backend_name, socket_path, strerror(errno));
+        return -1;
+    }
+
+    struct sockaddr_un server_addr;
+    memset(&server_addr, 0, sizeof(server_addr));
+    server_addr.sun_family = AF_UNIX;
+    strncpy(server_addr.sun_path, socket_path, sizeof(server_addr.sun_path) - 1);
+
+    int res = connect(fd, (struct sockaddr *)&server_addr, sizeof(server_addr));
+    if (res == -1) {
+        logerror("Error connecting to socket for %s on %s %s, socket %s: %s\n", jobid, p->id, p->backend_name, socket_path, strerror(errno));
+        close(fd);  // Close the socket in case of an error
+        return -1;
+    }
+
+    // unlink(socket_path); // The socket is only for one single job
+
+    return fd;
+}
+
+char *cpdbPrintSocket(cpdb_printer_obj_t *p,
+                    char *jobid, const char *title)
+{
+    char *socket;
+    GError *error = NULL;   
     cpdbDebugPrintSettings(p->settings);
-    print_backend_call_print_file_sync(p->backend_proxy,
+    print_backend_call_print_socket_sync(p->backend_proxy,
                                        p->id,
-                                       absolute_file_path,
                                        p->settings->count,
                                        cpdbSerializeToGVariant(p->settings),
-                                       "final-file-path-not-required",
+                                       title,
                                        &jobid,
+                                       &socket,
                                        NULL,
                                        &error);
                                        
     if (error)
     {
-        logerror("Error printing file %s on %s %s : %s\n", 
-                    absolute_file_path, p->id, p->backend_name, error->message);
+        logerror("Error opening socket on %s %s : %s\n", 
+                    p->id, p->backend_name, error->message);
         return NULL;
     }
     
     if (jobid == NULL || jobid == "")
     {
-        logerror("Error printing file %s on %s %s : Couldn't create a job\n", 
-                    absolute_file_path, p->id, p->backend_name);
+        logerror("Error while trying to create a job on %s %s: Couldn't create a job\n", 
+                    p->id, p->backend_name);
         return NULL;
+        unlink(socket);
     }
-    
-    loginfo("File %s sent for printing on %s %s successfully\n",
-                absolute_file_path, p->id, p->backend_name);
-    cpdbSaveSettingsToDisk(p->settings);
-    free(absolute_file_path);
-    return jobid;
-}
 
-char *cpdbPrintFilePath(cpdb_printer_obj_t *p,
-                        const char *file_path,
-                        const char *final_file_path)
-{
-    char *result, *absolute_file_path, *absolute_final_file_path;
-    GError *error = NULL;
-    
-    absolute_file_path = cpdbGetAbsolutePath(file_path);
-    absolute_final_file_path = cpdbGetAbsolutePath(final_file_path);
-    logdebug("Printing file %s on %s %s to %s\n",
-                absolute_file_path, p->id, p->backend_name, absolute_final_file_path);
-    cpdbDebugPrintSettings(p->settings);
-    print_backend_call_print_file_sync(p->backend_proxy,
-                                       p->id,
-                                       absolute_file_path,
-                                       p->settings->count,
-                                       cpdbSerializeToGVariant(p->settings),
-                                       absolute_final_file_path,
-                                       &result,
-                                       NULL,
-                                       &error);
-    
-    if (error)
+    if (socket == NULL || socket == "")
     {
-        logerror("Error printing file %s to %s : %s\n", 
-                 absolute_file_path, absolute_final_file_path, error->message);
+        logerror("Error opening socket on %s %s: Couldn't create a socket\n", 
+                    p->id, p->backend_name);
         return NULL;
     }
     
-    if (result == NULL)
-    {
-        logerror("Error printing file %s to %s\n", 
-                 absolute_file_path, absolute_final_file_path);
-        return NULL;
-    }
-    
-    loginfo("File %s printed to %s successfully\n",
-                absolute_file_path, absolute_final_file_path);
-    free(absolute_file_path);
-    free(absolute_final_file_path);
-    return result;
+    loginfo("Socket opened for printing job %s on %s %s successfully: %s\n",
+	    jobid, p->id, p->backend_name, socket);
+    cpdbSaveSettingsToDisk(p->settings);
+    return socket;
 }
 
 void cpdbAddSettingToPrinter(cpdb_printer_obj_t *p,
@@ -1179,30 +1089,6 @@ gboolean cpdbClearSettingFromPrinter(cpdb_printer_obj_t *p,
         return FALSE;
     }
     return cpdbClearSetting(p->settings, name);
-}
-
-gboolean cpdbCancelJob(cpdb_printer_obj_t *p,
-                       const char *job_id)
-{
-    gboolean status;
-    GError *error = NULL;
-    
-    print_backend_call_cancel_job_sync(p->backend_proxy,
-                                       job_id,
-                                       p->id,
-                                       &status,
-                                       NULL,
-                                       &error);
-    if (error)
-    {
-        logerror("Error cancelling job %s on %s %s\n", 
-                    job_id, p->id, p->backend_name, error->message);
-        return FALSE;
-    }
-    
-    logdebug("Obtained status=%d for cancelling job %s on %s %s\n",
-                status, job_id, p->id, p->backend_name);
-    return status;
 }
 
 void cpdbPicklePrinterToFile(cpdb_printer_obj_t *p,
@@ -1561,7 +1447,6 @@ void cpdbGetAllTranslations(cpdb_printer_obj_t *p,
 cpdb_media_t *cpdbGetMedia(cpdb_printer_obj_t *p,
                            const char *media)
 {
-    cpdbGetAllOptions(p);
     return (cpdb_media_t *) g_hash_table_lookup(p->options->media, media);
 }
 
