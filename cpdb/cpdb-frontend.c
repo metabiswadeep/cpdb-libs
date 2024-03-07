@@ -1487,6 +1487,7 @@ void cpdbGetAllTranslations(cpdb_printer_obj_t *p,
 cpdb_media_t *cpdbGetMedia(cpdb_printer_obj_t *p,
                            const char *media)
 {
+    cpdbGetAllOptions(p);
     return (cpdb_media_t *) g_hash_table_lookup(p->options->media, media);
 }
 
