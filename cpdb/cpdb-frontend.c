@@ -878,6 +878,46 @@ char *cpdbGetState(cpdb_printer_obj_t *p)
     return p->state;
 }
 
+cpdb_options_t *cpdbGetAllOptions(cpdb_printer_obj_t *p)
+{
+    if (p == NULL) 
+    {
+        logwarn("Invalid params: cpdbGetAllOptions()\n");
+        return NULL;
+    }
+
+    /** 
+     * If the options were previously queried, 
+     * return them, instead of querying again.
+    */
+    if (p->options)
+        return p->options;
+
+    GError *error = NULL;
+    int num_options, num_media;
+    GVariant *var, *media_var;
+    print_backend_call_get_all_options_sync(p->backend_proxy,
+                                            p->id,
+                                            &num_options,
+                                            &var,
+                                            &num_media,
+                                            &media_var,
+                                            NULL,
+                                            &error);
+    if (error)
+    {
+        logerror("Error getting printer options for %s %s : %s\n",
+                    p->id, p->backend_name, error->message);
+        return NULL;
+    }
+
+    loginfo("Obtained %d options and %d media for %s %s\n",
+            num_options, num_media, p->id, p->backend_name);
+    p->options = cpdbGetNewOptions();
+    cpdbUnpackOptions(num_options, var, num_media, media_var, p->options);
+    return p->options;
+}
+
 cpdb_option_t *cpdbGetOption(cpdb_printer_obj_t *p,
                              const char *name)
 {
