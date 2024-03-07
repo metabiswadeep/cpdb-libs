@@ -926,7 +926,7 @@ cpdb_option_t *cpdbGetOption(cpdb_printer_obj_t *p,
         logwarn("Invalid params: cpdbGetOption()\n");
         return NULL;
     }
-
+    cpdbGetAllOptions(p);
     return (cpdb_option_t *)(g_hash_table_lookup(p->options->table, name));
 }
 
