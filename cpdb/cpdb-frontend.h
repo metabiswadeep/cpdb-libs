@@ -244,17 +244,6 @@ gboolean cpdbSetUserDefaultPrinter(cpdb_printer_obj_t *p);
  */
 gboolean cpdbSetSystemDefaultPrinter(cpdb_printer_obj_t *p);
 
-/**
- * Get the list of (all/active) jobs from all the backends for all users.
- *
- * @param jobs              Pointer to a cpdb_job_t array. The retrieved job list array is stored at this location
- * @param active_only       If TRUE, retrieves only the active jobs, otherwise retrieves all(active + completed + stopped) jobs
- *
- * @return                  Number of jobs (i.e. length of the cpdb_job_t array)
- *
- */
-int cpdbGetAllJobs(cpdb_frontend_obj_t *frontend_obj, cpdb_job_t **jobs, gboolean active_only);
-
 /*******************************************************************************************/
 
 /**
@@ -378,15 +367,6 @@ char *cpdbGetSetting(cpdb_printer_obj_t *p, const char *option_name);
 char *cpdbGetCurrent(cpdb_printer_obj_t *printer_obj, const char *option_name);
 
 /**
- * Get the number of active jobs(pending + paused + printing) on a printer.
- * 
- * @param printer_obj       Printer object
- * 
- * @return                  Number of active jobs
- */
-int cpdbGetActiveJobsCount(cpdb_printer_obj_t *printer_obj);
-
-/**
  * Submit a file for printing, using the settings set previously.
  * 
  * @param printer_obj       Printer object
@@ -396,16 +376,12 @@ int cpdbGetActiveJobsCount(cpdb_printer_obj_t *printer_obj);
  */
 char *cpdbPrintFile(cpdb_printer_obj_t *printer_obj, const char *file_path);
 
-/**
- * Submit file for printing to another file, using the settings set previously.
- * 
- * @param printer_obj       Printer object 
- * @param file_path         Path of file to print
- * @param final_file_path   Final path to print to
- * 
- * @return                  Job ID if created, NULL otherwise
- */
-char *cpdbPrintFilePath(cpdb_printer_obj_t *printer_obj, const char *file_path, const char *final_file_path);
+char *cpdbPrintFileWithJobTitle(cpdb_printer_obj_t *p, const char *file_path, const char *title);
+
+int cpdbPrintFD(cpdb_printer_obj_t *p, char *jobid, const char *title, char *socket_path);
+
+char *cpdbPrintSocket(cpdb_printer_obj_t *printer_obj, char *jobid, const char *title);
+
 
 /**
  * Set an option value for a printer.
@@ -426,16 +402,6 @@ void cpdbAddSettingToPrinter(cpdb_printer_obj_t *printer_obj, const char *option
  * @return                  TRUE if set value successfully cleared, FALSE otherwise
  */
 gboolean cpdbClearSettingFromPrinter(cpdb_printer_obj_t *printer_obj, const char *option_name);
-
-/**
- * Cancel a job on a printer.
- *
- * @param printer_obj       Printer object
- * @param job_id            Job ID for job to cancel
- * 
- * @return                  TRUE if job cancelled, FALSE otherwise
- */
-gboolean cpdbCancelJob(cpdb_printer_obj_t *printer_obj, const char *job_id);
 
 /**
  * Serialize the cpdb_printer_obj_t and save it to a file

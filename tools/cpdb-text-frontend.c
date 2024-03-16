@@ -373,50 +373,8 @@ gpointer control_thread(gpointer user_data)
              */
             cpdb_printer_obj_t *p = cpdbFindPrinterObj(f, printer_id, backend_name);
 
-            if(strcmp(backend_name, "FILE") == 0)
-            {
-              char final_file_path[BUFSIZE];
-              printf("Please give the final file path: ");
-              scanf("%1023s", final_file_path);
-              cpdbPrintFilePath(p, file_path, final_file_path);
-              continue;
-            }
-
             cpdbAddSettingToPrinter(p, "copies", "3");
             cpdbPrintFile(p, file_path);
-        }
-        else if (strcmp(buf, "get-active-jobs-count") == 0)
-        {
-            char printer_id[BUFSIZE];
-            char backend_name[BUFSIZE];
-            scanf("%1023s%1023s", printer_id, backend_name);
-            cpdb_printer_obj_t *p = cpdbFindPrinterObj(f, printer_id, backend_name);
-            printf("%d jobs currently active.\n", cpdbGetActiveJobsCount(p));
-        }
-        else if (strcmp(buf, "get-all-jobs") == 0)
-        {
-            int active_only;
-            scanf("%d", &active_only);
-            cpdb_job_t *j;
-            int x = cpdbGetAllJobs(f, &j, active_only);
-            printf("Total %d jobs\n", x);
-            int i;
-            for (i = 0; i < x; i++)
-            {
-                printf("%s .. %s  .. %s  .. %s  .. %s\n", j[i].job_id, j[i].title, j[i].printer_id, j[i].state, j[i].submitted_at);
-            }
-        }
-        else if (strcmp(buf, "cancel-job") == 0)
-        {
-            char printer_id[BUFSIZE];
-            char backend_name[BUFSIZE];
-            char job_id[BUFSIZE];
-            scanf("%1023s%1023s%1023s", job_id, printer_id, backend_name);
-            cpdb_printer_obj_t *p = cpdbFindPrinterObj(f, printer_id, backend_name);
-            if (cpdbCancelJob(p, job_id))
-                printf("cpdb_job_t %s has been cancelled.\n", job_id);
-            else
-                printf("Unable to cancel job %s\n", job_id);
         }
         else if (strcmp(buf, "pickle-printer") == 0)
         {
@@ -532,11 +490,8 @@ void display_help()
     printf("%s\n", "set-user-default-printer <printer id> <backend name>");
     printf("%s\n", "set-system-default-printer <printer id> <backend name>");
     printf("%s\n", "print-file <file path> <printer_id> <backend_name>");
-    printf("%s\n", "get-active-jobs-count <printer-name> <backend-name>");
-    printf("%s\n", "get-all-jobs <0 for all jobs; 1 for only active>");
     printf("%s\n", "get-state <printer id> <backend name>");
     printf("%s\n", "is-accepting-jobs <printer id> <backend name(like \"CUPS\")>");
-    printf("%s\n", "cancel-job <job-id> <printer id> <backend name>");
     printf("%s\n", "acquire-details <printer id> <backend name>");
     printf("%s\n", "acquire-translations <printer id> <backend name>");
     printf("%s\n", "get-all-options <printer-name> <backend-name>");
