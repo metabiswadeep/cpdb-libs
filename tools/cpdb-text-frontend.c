@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <locale.h>
+#include <unistd.h>
 
 #include <glib.h>
 #include <libintl.h>
@@ -140,11 +141,15 @@ int main(int argc, char **argv)
 
     locale = getenv("LANGUAGE");
 
+    pid_t pid_temp = getpid();
+    char pid[20];
+    snprintf(pid, sizeof(pid), "%d", (int)pid_temp);
+
     char *dialog_bus_name = malloc(300);
     if (argc > 1) //this is for creating multiple instances of a dialog simultaneously
         f = cpdbGetNewFrontendObj(argv[1], printer_cb);
     else
-        f = cpdbGetNewFrontendObj(NULL, printer_cb);
+        f = cpdbGetNewFrontendObj(pid, printer_cb);
 
     /** Uncomment the line below if you don't want to use the previously saved settings**/
     cpdbIgnoreLastSavedSettings(f);
