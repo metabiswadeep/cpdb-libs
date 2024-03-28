@@ -178,8 +178,14 @@ gpointer control_thread(gpointer user_data)
         }
         else if (strcmp(buf, "restart") == 0)
         {
+            g_message("Restarting..\n");
             cpdbDisconnectFromDBus(f);
             cpdbConnectToDBus(f);
+        }
+        else if (strcmp(buf, "get-all-printers") == 0)
+        {
+            displayAllPrinters(f);
+
         }
         else if (strcmp(buf, "hide-remote") == 0)
         {
@@ -485,10 +491,12 @@ void display_help()
 {
     g_message("Available commands .. ");
     printf("%s\n", "stop");
+    printf("%s\n", "restart");
     printf("%s\n", "hide-remote");
     printf("%s\n", "unhide-remote");
     printf("%s\n", "hide-temporary");
     printf("%s\n", "unhide-temporary");
+    printf("%s\n", "get-all-printers");
     //printf("%s\n", "ping <printer id> ");
     printf("%s\n", "get-default-printer");
     printf("%s\n", "get-default-printer-for-backend <backend name>");
