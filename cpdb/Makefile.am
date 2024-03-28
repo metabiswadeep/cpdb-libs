@@ -52,11 +52,6 @@ backend-interface.c backend-interface.h: interface/org.openprinting.Backend.xml
 	--interface-prefix org.openprinting \
 	interface/org.openprinting.Backend.xml
 
-frontend-interface.c frontend-interface.h: interface/org.openprinting.Frontend.xml
-	$(AM_V_GEN)gdbus-codegen --generate-c-code frontend-interface \
-	--interface-prefix org.openprinting \
-	interface/org.openprinting.Frontend.xml
-
 
 genfiles = *-interface.*
 

@@ -2,6 +2,7 @@
 #include <fcntl.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <stdbool.h>
 
 static void                 on_printer_added                (GDBusConnection *          connection,
                                                              const gchar *              sender_name,
@@ -290,6 +291,12 @@ void cpdbConnectToDBus(cpdb_frontend_obj_t *f)
     g_main_context_unref(context);
 }
 
+void stopListingLookup(gpointer key, gpointer value, gpointer user_data){
+    PrintBackend *proxy = value;
+    GError *error = NULL; 
+    print_backend_call_do_listing_sync(proxy, false, NULL, &error);
+}
+
 void cpdbDisconnectFromDBus(cpdb_frontend_obj_t *f)
 {
     if (f->connection == NULL || g_dbus_connection_is_closed(f->connection))
@@ -297,8 +304,7 @@ void cpdbDisconnectFromDBus(cpdb_frontend_obj_t *f)
         logwarn("Already disconnected from DBus\n");
         return;
     }
-    
-    print_frontend_emit_stop_listing(f->skeleton);
+    g_hash_table_foreach(f->backend, stopListingLookup, NULL);
     g_dbus_connection_flush_sync(f->connection, NULL, NULL);
     
     g_bus_unown_name(f->own_id);
@@ -492,28 +498,60 @@ cpdb_printer_obj_t *cpdbRemovePrinter(cpdb_frontend_obj_t *f,
     return p;
 }
 
+void hideRemoteLookup(gpointer key, gpointer value, gpointer user_data){
+    PrintBackend *proxy = value;
+    GError *error = NULL; 
+    print_backend_call_show_remote_printers_sync(proxy, false, NULL,
+                                       &error);
+}
+
 void cpdbHideRemotePrinters(cpdb_frontend_obj_t *f)
 {
     loginfo("Hiding remote printers\n");
-    print_frontend_emit_hide_remote_printers(f->skeleton);
+    g_hash_table_foreach(f->backend, hideRemoteLookup, NULL);
+    
+}
+
+void showRemoteLookup(gpointer key, gpointer value, gpointer user_data){
+    PrintBackend *proxy = value;
+    GError *error = NULL; 
+    print_backend_call_show_remote_printers_sync(proxy, true, NULL,
+                                       &error);
 }
 
 void cpdbUnhideRemotePrinters(cpdb_frontend_obj_t *f)
 {
     loginfo("Unhiding remote printers\n");
-    print_frontend_emit_unhide_remote_printers(f->skeleton);
+    g_hash_table_foreach(f->backend, showRemoteLookup, NULL);
+    
+}
+
+void hideTemporaryLookup(gpointer key, gpointer value, gpointer user_data){
+    PrintBackend *proxy = value;
+    GError *error = NULL; 
+    print_backend_call_show_temporary_printers_sync(proxy, false, NULL,
+                                       &error);
 }
 
 void cpdbHideTemporaryPrinters(cpdb_frontend_obj_t *f)
 {
     loginfo("Hiding temporary printers\n");
-    print_frontend_emit_hide_temporary_printers(f->skeleton);
+    g_hash_table_foreach(f->backend, hideTemporaryLookup, NULL);
+    
+}
+
+void showTemporaryLookup(gpointer key, gpointer value, gpointer user_data){
+    PrintBackend *proxy = value;
+    GError *error = NULL; 
+    print_backend_call_show_temporary_printers_sync(proxy, true, NULL,
+                                       &error);
 }
 
 void cpdbUnhideTemporaryPrinters(cpdb_frontend_obj_t *f)
 {
     loginfo("Unhiding temporary printers\n");
-    print_frontend_emit_unhide_temporary_printers(f->skeleton);
+    g_hash_table_foreach(f->backend, showTemporaryLookup, NULL);
+    
 }
 
 cpdb_printer_obj_t *cpdbFindPrinterObj(cpdb_frontend_obj_t *f,
