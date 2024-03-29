@@ -200,12 +200,12 @@ gpointer control_thread(gpointer user_data)
         else if (strcmp(buf, "hide-temporary") == 0)
         {
             cpdbHideTemporaryPrinters(f);
-            g_message("Hiding remote printers discovered by the backend..\n");
+            g_message("Hiding temporary printers discovered by the backend..\n");
         }
         else if (strcmp(buf, "unhide-temporary") == 0)
         {
             cpdbUnhideTemporaryPrinters(f);
-            g_message("Unhiding remote printers discovered by the backend..\n");
+            g_message("Unhiding temporary printers discovered by the backend..\n");
         }
         else if (strcmp(buf, "get-all-options") == 0)
         {
