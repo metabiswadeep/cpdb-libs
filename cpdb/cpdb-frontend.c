@@ -26,9 +26,6 @@ static void                 on_printer_state_changed        (GDBusConnection *  
                                                              GVariant *                 parameters,
                                                              gpointer                   user_data);
 
-static void                 on_name_acquired                (GDBusConnection *          connection,
-                                                             const gchar *              name,
-                                                            gpointer                   user_data);
 static void                 on_name_lost                    (GDBusConnection *          connection,
                                                              const gchar *              name,
                                                              gpointer                   user_data);
@@ -69,14 +66,8 @@ cpdb_frontend_obj_t *cpdbGetNewFrontendObj(const char *instance_name,
 {
     cpdb_frontend_obj_t *f = g_new0(cpdb_frontend_obj_t, 1);
     
-    f->skeleton = print_frontend_skeleton_new();
     f->connection = NULL;
     f->own_id = 0;
-    f->name_done = FALSE;
-    if (instance_name == NULL)
-        f->bus_name = cpdbGetStringCopy(CPDB_DIALOG_BUS_NAME);
-    else
-        f->bus_name = cpdbConcat(CPDB_DIALOG_BUS_NAME, instance_name);
     f->printer_cb = printer_cb;
     f->num_backends = 0;
     f->backend = g_hash_table_new_full(g_str_hash,
@@ -96,14 +87,11 @@ void cpdbDeleteFrontendObj(cpdb_frontend_obj_t *f)
 {
     if (f == NULL)
         return;
-    logdebug("Deleting frontend obj %s\n", f->bus_name);
+    logdebug("Deleting frontend obj \n");
 
     cpdbDisconnectFromDBus(f);
 
-    if (f->skeleton)
-        g_object_unref(f->skeleton);
-    if (f->bus_name)
-        free(f->bus_name);
+
     if (f->backend)
         g_hash_table_destroy(f->backend);
     if (f->printer)
@@ -175,68 +163,12 @@ static void on_printer_state_changed(GDBusConnection *connection,
     f->printer_cb(f, p, CPDB_CHANGE_PRINTER_STATE_CHANGED);
 }
 
-static void on_name_acquired(GDBusConnection *connection,
-                             const gchar *name,
-                             gpointer user_data)
-{
-    GError *error = NULL;
-    cpdb_frontend_obj_t *f = user_data;
-
-    logdebug("Acquired bus name %s\n", name);
-    
-    g_dbus_connection_signal_subscribe(connection,
-                                       NULL,                            //Sender name
-                                       "org.openprinting.PrintBackend", //Sender interface
-                                       CPDB_SIGNAL_PRINTER_ADDED,       //Signal name
-                                       NULL,                            /**match on all object paths**/
-                                       NULL,                            /**match on all arguments**/
-                                       0,                               //Flags
-                                       on_printer_added,                //callback
-                                       user_data,                       //user_data
-                                       NULL);
-
-    g_dbus_connection_signal_subscribe(connection,
-                                       NULL,                            //Sender name
-                                       "org.openprinting.PrintBackend", //Sender interface
-                                       CPDB_SIGNAL_PRINTER_REMOVED,     //Signal name
-                                       NULL,                            /**match on all object paths**/
-                                       NULL,                            /**match on all arguments**/
-                                       0,                               //Flags
-                                       on_printer_removed,              //callback
-                                       user_data,                       //user_data
-                                       NULL);
-    g_dbus_connection_signal_subscribe(connection,
-                                       NULL,                                //Sender name
-                                       "org.openprinting.PrintBackend",     //Sender interface
-                                       CPDB_SIGNAL_PRINTER_STATE_CHANGED,   //Signal name
-                                       NULL,                                /**match on all object paths**/
-                                       NULL,                                /**match on all arguments**/
-                                       0,                                   //Flags
-                                       on_printer_state_changed,            //callback
-                                       user_data,                           //user_data
-                                       NULL);
-
-    g_dbus_interface_skeleton_export(G_DBUS_INTERFACE_SKELETON(f->skeleton),
-                                     connection, 
-                                     CPDB_DIALOG_OBJ_PATH,
-                                     &error);
-    if (error)
-    {
-        logerror("Error exporting frontend interface : %s\n", error->message);
-        return;
-    }
-    
-    cpdbActivateBackends(f);
-    f->name_done = TRUE;
-}
-
 static void on_name_lost(GDBusConnection *connection,
                          const gchar *name,
                          gpointer user_data)
 {
     logdebug("Lost bus name %s\n", name);
     cpdb_frontend_obj_t *f = user_data;
-    f->name_done = TRUE;
 }
 
 static GDBusConnection *get_dbus_connection()
@@ -267,6 +199,7 @@ static GDBusConnection *get_dbus_connection()
 void cpdbConnectToDBus(cpdb_frontend_obj_t *f)
 {
     GMainContext *context;
+    GError *error = NULL;
 
     if ((f->connection = get_dbus_connection()) == NULL)
     {
@@ -274,21 +207,53 @@ void cpdbConnectToDBus(cpdb_frontend_obj_t *f)
         return;
     }
     
-    f->own_id = g_bus_own_name_on_connection(f->connection,
-                                             f->bus_name,
-                                             0,
-                                             on_name_acquired,
-                                             on_name_lost,
-                                             f,
-                                             NULL);
+    g_dbus_connection_signal_subscribe(f->connection,
+                                       NULL,                            //Sender name
+                                       "org.openprinting.PrintBackend", //Sender interface
+                                       CPDB_SIGNAL_PRINTER_ADDED,       //Signal name
+                                       NULL,                            /**match on all object paths**/
+                                       NULL,                            /**match on all arguments**/
+                                       0,                               //Flags
+                                       on_printer_added,                //callback
+                                       NULL,                            //user_data
+                                       NULL);
 
-    // Wait till either of name acquired/lost callbacks finish
-    context = g_main_context_ref_thread_default();
-    while (!f->name_done)
+    g_dbus_connection_signal_subscribe(f->connection,
+                                       NULL,                            //Sender name
+                                       "org.openprinting.PrintBackend", //Sender interface
+                                       CPDB_SIGNAL_PRINTER_REMOVED,     //Signal name
+                                       NULL,                            /**match on all object paths**/
+                                       NULL,                            /**match on all arguments**/
+                                       0,                               //Flags
+                                       on_printer_removed,              //callback
+                                       NULL,                            //user_data
+                                       NULL);
+    g_dbus_connection_signal_subscribe(f->connection,
+                                       NULL,                                //Sender name
+                                       "org.openprinting.PrintBackend",     //Sender interface
+                                       CPDB_SIGNAL_PRINTER_STATE_CHANGED,   //Signal name
+                                       NULL,                                /**match on all object paths**/
+                                       NULL,                                /**match on all arguments**/
+                                       0,                                   //Flags
+                                       on_printer_state_changed,            //callback
+                                       NULL,                                //user_data
+                                       NULL);
+
+
+    if (error)
     {
-        g_main_context_iteration(context, TRUE);
+        logerror("Error exporting frontend interface : %s\n", error->message);
+        return;
     }
-    g_main_context_unref(context);
+    
+    cpdbActivateBackends(f); 
+    
+}
+
+void stopListingLookup(gpointer key, gpointer value, gpointer user_data){
+    PrintBackend *proxy = value;
+    GError *error = NULL; 
+    print_backend_call_do_listing_sync(proxy, false, NULL, &error);
 }
 
 void stopListingLookup(gpointer key, gpointer value, gpointer user_data){

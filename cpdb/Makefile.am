@@ -1,14 +1,12 @@
 EXTRA_DIST = interface
 
-BUILT_SOURCES = backend-interface.h \
-		frontend-interface.h
+BUILT_SOURCES = backend-interface.h 
 
 lib_LTLIBRARIES	= libcpdb.la libcpdb-frontend.la
 
 libcpdb_la_SOURCES = cpdb.c \
 		     cpdb.h
-nodist_libcpdb_la_SOURCES = backend-interface.c \
-			    frontend-interface.c
+nodist_libcpdb_la_SOURCES = backend-interface.c 
 
 libcpdb_la_CPPFLAGS  = $(GLIB_CFLAGS)
 libcpdb_la_CPPFLAGS += $(GIO_CFLAGS)
@@ -43,8 +41,7 @@ cpdb_headers_HEADERS = cpdb.h \
 		       cpdb-frontend.h \
 		       backend.h \
 		       frontend.h
-nodist_cpdb_headers_HEADERS = backend-interface.h \
-			      frontend-interface.h
+nodist_cpdb_headers_HEADERS = backend-interface.h
 
 
 backend-interface.c backend-interface.h: interface/org.openprinting.Backend.xml

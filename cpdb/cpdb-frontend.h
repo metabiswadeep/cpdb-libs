@@ -71,12 +71,9 @@ ______________________________________ cpdb_frontend_obj_t _____________________
 
 struct cpdb_frontend_obj_s
 {
-    PrintFrontend *skeleton;
     GDBusConnection *connection;
 
     int own_id;
-    gboolean name_done;
-    char *bus_name;
     cpdb_printer_callback printer_cb;
 
     int num_backends;
