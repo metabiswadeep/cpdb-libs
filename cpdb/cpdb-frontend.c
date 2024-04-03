@@ -26,10 +26,6 @@ static void                 on_printer_state_changed        (GDBusConnection *  
                                                              GVariant *                 parameters,
                                                              gpointer                   user_data);
 
-static void                 on_name_lost                    (GDBusConnection *          connection,
-                                                             const gchar *              name,
-                                                             gpointer                   user_data);
-
 static void                 fetchPrinterListFromBackend     (cpdb_frontend_obj_t *      frontend_obj,
                                                              const char *               backend);
                                              
@@ -163,14 +159,6 @@ static void on_printer_state_changed(GDBusConnection *connection,
     f->printer_cb(f, p, CPDB_CHANGE_PRINTER_STATE_CHANGED);
 }
 
-static void on_name_lost(GDBusConnection *connection,
-                         const gchar *name,
-                         gpointer user_data)
-{
-    logdebug("Lost bus name %s\n", name);
-    cpdb_frontend_obj_t *f = user_data;
-}
-
 static GDBusConnection *get_dbus_connection()
 {
     gchar *bus_addr;
@@ -248,12 +236,6 @@ void cpdbConnectToDBus(cpdb_frontend_obj_t *f)
     
     cpdbActivateBackends(f); 
     
-}
-
-void stopListingLookup(gpointer key, gpointer value, gpointer user_data){
-    PrintBackend *proxy = value;
-    GError *error = NULL; 
-    print_backend_call_do_listing_sync(proxy, false, NULL, &error);
 }
 
 void stopListingLookup(gpointer key, gpointer value, gpointer user_data){
