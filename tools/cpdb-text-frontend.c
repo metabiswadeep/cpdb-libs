@@ -17,20 +17,6 @@ gpointer control_thread(gpointer user_data);
 cpdb_frontend_obj_t *f;
 static const char *locale;
 
-static void printBasicOptions(const cpdb_printer_obj_t *p)
-{
-    printf("-------------------------\n");
-    printf("Printer %s\n", p->id);
-    printf("name: %s\n", p->name);
-    printf("location: %s\n", p->location);
-    printf("info: %s\n", p->info);
-    printf("make and model: %s\n", p->make_and_model);
-    printf("accepting jobs? %s\n", (p->accepting_jobs ? "yes" : "no"));
-    printf("state: %s\n", p->state);
-    printf("backend: %s\n", p->backend_name);
-    printf("-------------------------\n\n");
-}
-
 static void printMedia(const cpdb_media_t *media)
 {
     printf("[+] Media: %s\n", media->name);
@@ -89,7 +75,7 @@ static void displayAllPrinters(cpdb_frontend_obj_t *f)
     while (g_hash_table_iter_next(&iter, &key, &value))
     {
         const cpdb_printer_obj_t *p = value;
-        printBasicOptions(p);
+        cpdbPrintBasicOptions(p);
     }
 }
 
@@ -99,7 +85,7 @@ static void printer_callback(cpdb_frontend_obj_t *f, cpdb_printer_obj_t *p, cpdb
     {
     case CPDB_CHANGE_PRINTER_ADDED:
         g_message("Added printer %s : %s!\n", p->name, p->backend_name);
-        printBasicOptions(p);
+        cpdbPrintBasicOptions(p);
         break;
 
     case CPDB_CHANGE_PRINTER_REMOVED:
@@ -184,7 +170,7 @@ gpointer control_thread(gpointer user_data)
         }
         else if (strcmp(buf, "get-all-printers") == 0)
         {
-            displayAllPrinters(f);
+            cpdbGetAllPrinters(f);
 
         }
         else if (strcmp(buf, "hide-remote") == 0)

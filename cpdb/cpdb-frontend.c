@@ -272,7 +272,7 @@ static void fetchPrinterListFromBackend(cpdb_frontend_obj_t *f, const char *back
         logerror("Couldn't get %s proxy object\n", backend);
         return;
     }
-    print_backend_call_get_printer_list_sync (proxy, &num_printers,
+    print_backend_call_get_all_printers_sync (proxy, &num_printers,
                                                 &printers, NULL, &error);
     if (error)
     {
@@ -443,6 +443,51 @@ cpdb_printer_obj_t *cpdbRemovePrinter(cpdb_frontend_obj_t *f,
     
     free(key);
     return p;
+}
+
+void cpdbPrintBasicOptions(const cpdb_printer_obj_t *p)
+{
+    printf("-------------------------\n");
+    printf("Printer %s\n", p->id);
+    printf("name: %s\n", p->name);
+    printf("location: %s\n", p->location);
+    printf("info: %s\n", p->info);
+    printf("make and model: %s\n", p->make_and_model);
+    printf("accepting jobs? %s\n", (p->accepting_jobs ? "yes" : "no"));
+    printf("state: %s\n", p->state);
+    printf("backend: %s\n", p->backend_name);
+    printf("-------------------------\n\n");
+}
+
+void getAllPrintersLookup(gpointer key, gpointer value, gpointer user_data){
+    PrintBackend *proxy = value;
+    GError *error = NULL; 
+    
+    int num_printers;
+    GVariantIter iter;
+    GVariant *printers, *printer;
+    cpdb_printer_obj_t *p;
+
+    print_backend_call_get_filtered_printer_list_sync (proxy, &num_printers,
+                                                &printers, NULL, &error);
+    if (error)
+    {
+        logerror("Error getting printer list : %s\n", error->message);
+        return;
+    }
+    g_variant_iter_init(&iter, printers);
+    while (g_variant_iter_loop(&iter, "(v)", &printer))
+    {
+        p = cpdbGetNewPrinterObj();
+        cpdbFillBasicOptions(p, printer);
+        cpdbPrintBasicOptions(p);
+    }
+}
+
+void cpdbGetAllPrinters(cpdb_frontend_obj_t *f)
+{
+    loginfo("Hiding remote printers\n");
+    g_hash_table_foreach(f->backend, getAllPrintersLookup, NULL);    
 }
 
 void hideRemoteLookup(gpointer key, gpointer value, gpointer user_data){

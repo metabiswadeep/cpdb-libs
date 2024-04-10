@@ -162,6 +162,9 @@ void showRemoteLookup(gpointer key, gpointer value, gpointer user_data);
 void hideTemporaryLookup(gpointer key, gpointer value, gpointer user_data);
 void showTemporaryLookup(gpointer key, gpointer value, gpointer user_data);
 void stopListingLookup(gpointer key, gpointer value, gpointer user_data);
+void getAllPrintersLookup(gpointer key, gpointer value, gpointer user_data);
+void cpdbGetAllPrinters(cpdb_frontend_obj_t *f);
+void cpdbPrintBasicOptions(const cpdb_printer_obj_t *p);
 
 /**
  * Hide the remote printers of the backend.
