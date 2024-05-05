@@ -13,6 +13,8 @@
 
 void display_help();
 gpointer control_thread(gpointer user_data);
+gpointer background_thread(gpointer user_data);
+gboolean stop_flag = FALSE;
 
 cpdb_frontend_obj_t *f;
 static const char *locale;
@@ -139,8 +141,21 @@ int main(int argc, char **argv)
 
     /** Uncomment the line below if you don't want to use the previously saved settings**/
     cpdbIgnoreLastSavedSettings(f);
+    // Start the control thread
     GThread *thread = g_thread_new("control_thread", control_thread, NULL);
+    // Start the background thread
+    GThread *background = g_thread_new("background_thread", background_thread, NULL);
     g_thread_join(thread);
+    g_thread_join(background);
+}
+
+gpointer background_thread(gpointer user_data) {
+    while (!stop_flag) {
+        cpdbConnectToDBus(f);
+
+        // Sleep for the specified interval
+        sleep(5);
+    }
 }
 
 gpointer control_thread(gpointer user_data)
@@ -160,7 +175,8 @@ gpointer control_thread(gpointer user_data)
         {
             cpdbDeleteFrontendObj(f);
             g_message("Stopping front end..\n");
-	    return (NULL);
+            stop_flag=TRUE;
+	        return (NULL);
         }
         else if (strcmp(buf, "restart") == 0)
         {
@@ -471,6 +487,7 @@ gpointer control_thread(gpointer user_data)
             cpdbAcquireTranslations(p, locale, acquire_translations_callback, NULL);
         }
     }
+    stop_flag=TRUE;
 }
 
 void display_help()
