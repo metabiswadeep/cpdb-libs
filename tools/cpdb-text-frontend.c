@@ -154,7 +154,7 @@ gpointer background_thread(gpointer user_data) {
         cpdbConnectToDBus(f);
 
         // Sleep for the specified interval
-        sleep(5);
+        sleep(20);
     }
 }
 
