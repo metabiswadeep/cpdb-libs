@@ -82,6 +82,9 @@ struct cpdb_frontend_obj_s
     int num_printers;
     GHashTable *printer; /**[printer name] --> [cpdb_printer_obj_t] **/
 
+    gboolean hide_remote;
+    gboolean hide_temporary;
+
     cpdb_settings_t *last_saved_settings; /** The last saved settings to disk */
 };
 
@@ -165,6 +168,7 @@ void stopListingLookup(gpointer key, gpointer value, gpointer user_data);
 void getAllPrintersLookup(gpointer key, gpointer value, gpointer user_data);
 void cpdbGetAllPrinters(cpdb_frontend_obj_t *f);
 void cpdbPrintBasicOptions(const cpdb_printer_obj_t *p);
+void cpdbRefresh(cpdb_frontend_obj_t *f);
 
 /**
  * Hide the remote printers of the backend.

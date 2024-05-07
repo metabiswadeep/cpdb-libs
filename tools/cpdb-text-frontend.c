@@ -150,11 +150,11 @@ int main(int argc, char **argv)
 }
 
 gpointer background_thread(gpointer user_data) {
+    sleep(20);
     while (!stop_flag) {
-        cpdbConnectToDBus(f);
-
-        // Sleep for the specified interval
-        sleep(20);
+        cpdbRefresh(f);
+        if (f->hide_remote) cpdbHideRemotePrinters(f);
+        if (f->hide_temporary) cpdbHideTemporaryPrinters(f);
     }
 }
 
@@ -173,9 +173,9 @@ gpointer control_thread(gpointer user_data)
         scanf("%1023s", buf);
         if (strcmp(buf, "stop") == 0)
         {
+            stop_flag=TRUE;
             cpdbDeleteFrontendObj(f);
             g_message("Stopping front end..\n");
-            stop_flag=TRUE;
 	        return (NULL);
         }
         else if (strcmp(buf, "restart") == 0)
@@ -193,21 +193,25 @@ gpointer control_thread(gpointer user_data)
         {
             cpdbHideRemotePrinters(f);
             g_message("Hiding remote printers discovered by the backend..\n");
+            f->hide_remote=TRUE;
         }
         else if (strcmp(buf, "unhide-remote") == 0)
         {
             cpdbUnhideRemotePrinters(f);
             g_message("Unhiding remote printers discovered by the backend..\n");
+            f->hide_remote=FALSE;
         }
         else if (strcmp(buf, "hide-temporary") == 0)
         {
             cpdbHideTemporaryPrinters(f);
             g_message("Hiding temporary printers discovered by the backend..\n");
+            f->hide_temporary=TRUE;
         }
         else if (strcmp(buf, "unhide-temporary") == 0)
         {
             cpdbUnhideTemporaryPrinters(f);
             g_message("Unhiding temporary printers discovered by the backend..\n");
+            f->hide_temporary=FALSE;
         }
         else if (strcmp(buf, "get-all-options") == 0)
         {
