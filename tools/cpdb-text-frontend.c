@@ -150,9 +150,9 @@ int main(int argc, char **argv)
 }
 
 gpointer background_thread(gpointer user_data) {
-    sleep(20);
     while (!stop_flag) {
-        cpdbRefresh(f);
+        sleep(20);
+        cpdbActivateBackends(f);
         if (f->hide_remote) cpdbHideRemotePrinters(f);
         if (f->hide_temporary) cpdbHideTemporaryPrinters(f);
     }
