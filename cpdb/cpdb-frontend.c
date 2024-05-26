@@ -389,12 +389,13 @@ void cpdbActivateBackends(cpdb_frontend_obj_t *f) {
 }
 
 gpointer background_thread(gpointer user_data) {
+    cpdb_frontend_obj_t *f = (cpdb_frontend_obj_t *)user_data;
     while (1) {
         for (int i = 0; i < 50; i ++) {
-            if (stop_flag) break;
+            if (f->stop_flag) break;
             usleep(100000);
         }
-        if (stop_flag) break;
+        if (f->stop_flag) break;
         cpdbActivateBackends(f);
     }
 }
@@ -411,7 +412,7 @@ void cpdbStopBackendListRefreshing(cpdb_frontend_obj_t *f) {
     g_thread_join(f->background_thread);
 }
 
-cpdb_frontend_obj_t cpdbStartListingPrinters(const char *inst_name, cpdb_printer_callback printer_cb){
+cpdb_frontend_obj_t *cpdbStartListingPrinters(const char *inst_name, cpdb_printer_callback printer_cb){
     cpdbInit();
     cpdb_frontend_obj_t *f = cpdbGetNewFrontendObj(inst_name, printer_cb);
     cpdbConnectToDBus(f);

@@ -84,8 +84,11 @@ struct cpdb_frontend_obj_s
 
     gboolean hide_remote;
     gboolean hide_temporary;
+    gboolean stop_flag;
 
     cpdb_settings_t *last_saved_settings; /** The last saved settings to disk */
+
+    GThread *background_thread;
 };
 
 /**
@@ -172,7 +175,7 @@ void cpdbActivateBackends(cpdb_frontend_obj_t *f);
 void add_to_hash_table(gpointer key, gpointer value, gpointer user_data);
 void cpdbStartBackendListRefreshing(cpdb_frontend_obj_t *f);
 void cpdbStopBackendListRefreshing(cpdb_frontend_obj_t *f);
-cpdb_frontend_obj_t cpdbStartListingPrinters(const char *instance_name, cpdb_printer_callback printer_cb);
+cpdb_frontend_obj_t *cpdbStartListingPrinters(const char *instance_name, cpdb_printer_callback printer_cb);
 void cpdbStopListingPrinters(cpdb_frontend_obj_t *f);
 
 /**
