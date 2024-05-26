@@ -296,12 +296,15 @@ void add_to_hash_table(gpointer key, gpointer value, gpointer user_data) {
 
 void cpdbActivateBackends(cpdb_frontend_obj_t *f) {
     int len, i;
-    char *service_name = NULL, *backend_suffix = NULL;
+    char *service_name, *backend_suffix;
     GDBusProxy *dbus_proxy;
     PrintBackend *backend_proxy;
     GVariantIter iter;
     GError *error = NULL;
     GVariant *service_names, *service_names_tuple;
+    GHashTable *existing_backends;
+    GHashTableIter hash_iter;
+    gpointer key, value;
     const char * const name_lists[] = {
         "ListNames",
         "ListActivatableNames",
@@ -309,7 +312,7 @@ void cpdbActivateBackends(cpdb_frontend_obj_t *f) {
     };
 
     // Create a hash table to track existing backends
-    GHashTable *existing_backends = g_hash_table_new(g_str_hash, g_str_equal);
+    existing_backends = g_hash_table_new(g_str_hash, g_str_equal);
     g_hash_table_foreach(f->backend, add_to_hash_table, existing_backends);
 
     logdebug("Activating backends\n");
@@ -360,20 +363,27 @@ void cpdbActivateBackends(cpdb_frontend_obj_t *f) {
                         if (!g_hash_table_contains(existing_backends, backend_suffix)) {
                             fetchPrinterListFromBackend(f, backend_suffix);
                         }
-                        g_object_unref(backend_proxy);
                     }
                 }
+                g_hash_table_remove(existing_backends, backend_suffix);
                 g_free(backend_suffix);
             }
-            g_free(service_name);
         }
 
         g_variant_unref(service_names);
         g_variant_unref(service_names_tuple);
     }
 
-    g_object_unref(dbus_proxy);
+    // Remove backends that are no longer present
+    g_hash_table_iter_init(&hash_iter, existing_backends);
+    while (g_hash_table_iter_next(&hash_iter, &key, &value)) {
+        loginfo("Removing backend %s\n", (char *)key);
+        g_hash_table_remove(f->backend, key);
+        g_free(key);
+    }
+
     g_hash_table_destroy(existing_backends);
+    g_object_unref(dbus_proxy);
 }
 
 PrintBackend *cpdbCreateBackend(GDBusConnection *connection,
