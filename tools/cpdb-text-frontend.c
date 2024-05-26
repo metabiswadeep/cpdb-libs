@@ -161,6 +161,10 @@ gpointer background_thread(gpointer user_data) {
         }
         if (stop_flag) break;
         cpdbActivateBackends(f);
+        for (int i = 0; i < 50; i ++) {
+            if (stop_flag) break;
+            usleep(100000);
+        }
         if (f->hide_remote) cpdbHideRemotePrinters(f);
         if (f->hide_temporary) cpdbHideTemporaryPrinters(f);
     }
@@ -182,7 +186,6 @@ gpointer control_thread(gpointer user_data)
         if (strcmp(buf, "stop") == 0)
         {
             stop_flag=TRUE;
-            cpdbDeleteFrontendObj(f);
             g_message("Stopping front end..\n");
 	        return (NULL);
         }
