@@ -355,7 +355,7 @@ void cpdbActivateBackends(cpdb_frontend_obj_t *f) {
                             i ? "Starting now" : "Already running");
                     backend_proxy = cpdbCreateBackend(f->connection, service_name);
                     if (backend_proxy) {
-                        g_hash_table_insert(f->backend, backend_suffix, backend_proxy);
+                        g_hash_table_insert(f->backend, strdup(backend_suffix), backend_proxy);
                         f->num_backends++;
                         if (!g_hash_table_contains(existing_backends, backend_suffix)) {
                             fetchPrinterListFromBackend(f, backend_suffix);
