@@ -155,16 +155,12 @@ int main(int argc, char **argv)
 
 gpointer background_thread(gpointer user_data) {
     while (1) {
-        for (int i = 0; i < 200; i ++) {
+        for (int i = 0; i < 50; i ++) {
             if (stop_flag) break;
             usleep(100000);
         }
         if (stop_flag) break;
         cpdbActivateBackends(f);
-        for (int i = 0; i < 50; i ++) {
-            if (stop_flag) break;
-            usleep(100000);
-        }
         if (f->hide_remote) cpdbHideRemotePrinters(f);
         if (f->hide_temporary) cpdbHideTemporaryPrinters(f);
     }
