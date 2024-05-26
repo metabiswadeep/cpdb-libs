@@ -147,11 +147,19 @@ int main(int argc, char **argv)
     GThread *background = g_thread_new("background_thread", background_thread, NULL);
     g_thread_join(thread);
     g_thread_join(background);
+    cpdbDeleteFrontendObj(f);
+    free(dialog_bus_name);
+
+    return 0;
 }
 
 gpointer background_thread(gpointer user_data) {
-    while (!stop_flag) {
-        sleep(20);
+    while (1) {
+        for (int i = 0; i < 200; i ++) {
+            if (stop_flag) break;
+            usleep(100000);
+        }
+        if (stop_flag) break;
         cpdbActivateBackends(f);
         if (f->hide_remote) cpdbHideRemotePrinters(f);
         if (f->hide_temporary) cpdbHideTemporaryPrinters(f);
