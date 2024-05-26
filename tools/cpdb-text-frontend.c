@@ -14,7 +14,6 @@
 void display_help();
 gpointer control_thread(gpointer user_data);
 gpointer background_thread(gpointer user_data);
-gboolean stop_flag = FALSE;
 
 cpdb_frontend_obj_t *f;
 static const char *locale;
@@ -143,27 +142,13 @@ int main(int argc, char **argv)
     cpdbIgnoreLastSavedSettings(f);
     // Start the control thread
     GThread *thread = g_thread_new("control_thread", control_thread, NULL);
-    // Start the background thread
-    GThread *background = g_thread_new("background_thread", background_thread, NULL);
+    cpdbStartBackendListRefreshing(f);
     g_thread_join(thread);
-    g_thread_join(background);
+    cpdbStopBackendListRefreshing(f);
     cpdbDeleteFrontendObj(f);
     free(dialog_bus_name);
 
     return 0;
-}
-
-gpointer background_thread(gpointer user_data) {
-    while (1) {
-        for (int i = 0; i < 50; i ++) {
-            if (stop_flag) break;
-            usleep(100000);
-        }
-        if (stop_flag) break;
-        cpdbActivateBackends(f);
-        if (f->hide_remote) cpdbHideRemotePrinters(f);
-        if (f->hide_temporary) cpdbHideTemporaryPrinters(f);
-    }
 }
 
 gpointer control_thread(gpointer user_data)
@@ -181,7 +166,6 @@ gpointer control_thread(gpointer user_data)
         scanf("%1023s", buf);
         if (strcmp(buf, "stop") == 0)
         {
-            stop_flag=TRUE;
             g_message("Stopping front end..\n");
 	        return (NULL);
         }
@@ -498,7 +482,7 @@ gpointer control_thread(gpointer user_data)
             cpdbAcquireTranslations(p, locale, acquire_translations_callback, NULL);
         }
     }
-    stop_flag=TRUE;
+    
 }
 
 void display_help()

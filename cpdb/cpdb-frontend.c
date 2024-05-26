@@ -379,11 +379,49 @@ void cpdbActivateBackends(cpdb_frontend_obj_t *f) {
     while (g_hash_table_iter_next(&hash_iter, &key, &value)) {
         loginfo("Removing backend %s\n", (char *)key);
         g_hash_table_remove(f->backend, key);
-        g_free(key);
     }
 
     g_hash_table_destroy(existing_backends);
     g_object_unref(dbus_proxy);
+
+    if (f->hide_remote) cpdbHideRemotePrinters(f);
+    if (f->hide_temporary) cpdbHideTemporaryPrinters(f);
+}
+
+gpointer background_thread(gpointer user_data) {
+    while (1) {
+        for (int i = 0; i < 50; i ++) {
+            if (stop_flag) break;
+            usleep(100000);
+        }
+        if (stop_flag) break;
+        cpdbActivateBackends(f);
+    }
+}
+
+// Start the background thread
+void cpdbStartBackendListRefreshing(cpdb_frontend_obj_t *f) {
+    f->stop_flag = FALSE;
+    f->background_thread = g_thread_new("background_thread", background_thread, f);
+}
+
+// Stop the background thread
+void cpdbStopBackendListRefreshing(cpdb_frontend_obj_t *f) {
+    f->stop_flag = TRUE;
+    g_thread_join(f->background_thread);
+}
+
+cpdb_frontend_obj_t cpdbStartListingPrinters(const char *inst_name, cpdb_printer_callback printer_cb){
+    cpdbInit();
+    cpdb_frontend_obj_t *f = cpdbGetNewFrontendObj(inst_name, printer_cb);
+    cpdbConnectToDBus(f);
+    cpdbStartBackendListRefreshing(f); // Start bg task to check for backends coming/going
+    return f;
+}
+
+void cpdbStopListingPrinters(cpdb_frontend_obj_t *f){
+    cpdbStopBackendListRefreshing(f); // Stop bg task
+    cpdbDeleteFrontendObj(f);
 }
 
 PrintBackend *cpdbCreateBackend(GDBusConnection *connection,
