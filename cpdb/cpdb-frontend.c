@@ -289,7 +289,7 @@ static void fetchPrinterListFromBackend(cpdb_frontend_obj_t *f, const char *back
 }
 
 // Helper function to add existing backends to a hash table
-void add_to_hash_table(gpointer key, gpointer value, gpointer user_data) {
+void addToHashTable(gpointer key, gpointer value, gpointer user_data) {
     GHashTable *hash_table = (GHashTable *)user_data;
     g_hash_table_add(hash_table, key);
 }
@@ -313,7 +313,7 @@ void cpdbActivateBackends(cpdb_frontend_obj_t *f) {
 
     // Create a hash table to track existing backends
     existing_backends = g_hash_table_new(g_str_hash, g_str_equal);
-    g_hash_table_foreach(f->backend, add_to_hash_table, existing_backends);
+    g_hash_table_foreach(f->backend, addToHashTable, existing_backends);
 
     logdebug("Activating backends\n");
     dbus_proxy = g_dbus_proxy_new_sync(f->connection,
