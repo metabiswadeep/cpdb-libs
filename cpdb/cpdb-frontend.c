@@ -898,7 +898,7 @@ void cpdbDeletePrinterObj(cpdb_printer_obj_t *p)
     free(p);
 }
 
-void cpdbFillBasicOptions(cpdb_printer_obj_t *p,
+static void cpdbFillBasicOptions(cpdb_printer_obj_t *p,
                           GVariant *gv)
 {
     g_variant_get(gv, CPDB_PRINTER_ADDED_ARGS,
