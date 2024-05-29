@@ -172,7 +172,6 @@ void getAllPrintersLookup(gpointer key, gpointer value, gpointer user_data);
 void cpdbGetAllPrinters(cpdb_frontend_obj_t *f);
 void cpdbPrintBasicOptions(const cpdb_printer_obj_t *p);
 void cpdbActivateBackends(cpdb_frontend_obj_t *f);
-void addToHashTable(gpointer key, gpointer value, gpointer user_data);
 void cpdbStartBackendListRefreshing(cpdb_frontend_obj_t *f);
 void cpdbStopBackendListRefreshing(cpdb_frontend_obj_t *f);
 cpdb_frontend_obj_t *cpdbStartListingPrinters(const char *instance_name, cpdb_printer_callback printer_cb);

@@ -49,6 +49,9 @@ static void                 cpdbUnpackJobArray              (GVariant *         
                                                              cpdb_job_t *               jobs,
                                                              char *                     backend_name);
 static GHashTable *         cpdbUnpackTranslations          (GVariant *                 translations);
+static void                 cpdbAddToHashTable              (gpointer                   key,
+                                                             gpointer                   value, 
+                                                             gpointer                   user_data);
 
 /**
 ________________________________________________ cpdb_frontend_obj_t __________________________________________
@@ -289,7 +292,7 @@ static void fetchPrinterListFromBackend(cpdb_frontend_obj_t *f, const char *back
 }
 
 // Helper function to add existing backends to a hash table
-void addToHashTable(gpointer key, gpointer value, gpointer user_data) {
+static void cpdbAddToHashTable(gpointer key, gpointer value, gpointer user_data) {
     GHashTable *hash_table = (GHashTable *)user_data;
     g_hash_table_add(hash_table, key);
 }
