@@ -546,7 +546,7 @@ void getAllPrintersLookup(gpointer key, gpointer value, gpointer user_data){
 
 void cpdbGetAllPrinters(cpdb_frontend_obj_t *f)
 {
-    loginfo("Hiding remote printers\n");
+    loginfo("Fetching all printers\n");
     g_hash_table_foreach(f->backend, getAllPrintersLookup, NULL);    
 }
 
