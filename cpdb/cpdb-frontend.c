@@ -316,7 +316,7 @@ void cpdbActivateBackends(cpdb_frontend_obj_t *f) {
 
     // Create a hash table to track existing backends
     existing_backends = g_hash_table_new(g_str_hash, g_str_equal);
-    g_hash_table_foreach(f->backend, addToHashTable, existing_backends);
+    g_hash_table_foreach(f->backend, cpdbAddToHashTable, existing_backends);
 
     logdebug("Activating backends\n");
     dbus_proxy = g_dbus_proxy_new_sync(f->connection,
