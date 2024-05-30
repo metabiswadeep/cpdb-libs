@@ -71,12 +71,9 @@ ______________________________________ cpdb_frontend_obj_t _____________________
 
 struct cpdb_frontend_obj_s
 {
-    PrintFrontend *skeleton;
     GDBusConnection *connection;
 
     int own_id;
-    gboolean name_done;
-    char *bus_name;
     cpdb_printer_callback printer_cb;
 
     int num_backends;
@@ -85,7 +82,13 @@ struct cpdb_frontend_obj_s
     int num_printers;
     GHashTable *printer; /**[printer name] --> [cpdb_printer_obj_t] **/
 
+    gboolean hide_remote;
+    gboolean hide_temporary;
+    gboolean stop_flag;
+
     cpdb_settings_t *last_saved_settings; /** The last saved settings to disk */
+
+    GThread *background_thread;
 };
 
 /**
@@ -159,19 +162,34 @@ gboolean cpdbAddPrinter(cpdb_frontend_obj_t *frontend_obj, cpdb_printer_obj_t *p
  */
 cpdb_printer_obj_t *cpdbRemovePrinter(cpdb_frontend_obj_t *f, const char *printer_id, const char *backend_name);
 
+
+void hideRemoteLookup(gpointer key, gpointer value, gpointer user_data);
+void showRemoteLookup(gpointer key, gpointer value, gpointer user_data);
+void hideTemporaryLookup(gpointer key, gpointer value, gpointer user_data);
+void showTemporaryLookup(gpointer key, gpointer value, gpointer user_data);
+void stopListingLookup(gpointer key, gpointer value, gpointer user_data);
+void getAllPrintersLookup(gpointer key, gpointer value, gpointer user_data);
+void cpdbGetAllPrinters(cpdb_frontend_obj_t *f);
+void cpdbPrintBasicOptions(const cpdb_printer_obj_t *p);
+void cpdbActivateBackends(cpdb_frontend_obj_t *f);
+void cpdbStartBackendListRefreshing(cpdb_frontend_obj_t *f);
+void cpdbStopBackendListRefreshing(cpdb_frontend_obj_t *f);
+cpdb_frontend_obj_t *cpdbStartListingPrinters(const char *instance_name, cpdb_printer_callback printer_cb);
+void cpdbStopListingPrinters(cpdb_frontend_obj_t *f);
+
 /**
  * Hide the remote printers of the backend.
  * 
  * @param frontend_obj      Frontend instance
  */
-void cpdbHideRemotePrinters(cpdb_frontend_obj_t *frontend_obj);
+void cpdbHideRemotePrinters(cpdb_frontend_obj_t *f);
 
 /**
  * Unhide the remote printers of the backend.
  * 
  * @param frontend_obj      Frontend instance
  */
-void cpdbUnhideRemotePrinters(cpdb_frontend_obj_t *frontend_obj);
+void cpdbUnhideRemotePrinters(cpdb_frontend_obj_t *f);
 
 /**
  * Hide those (temporary) printers which have been discovered by the backend,
@@ -179,7 +197,7 @@ void cpdbUnhideRemotePrinters(cpdb_frontend_obj_t *frontend_obj);
  * 
  * @param frontend_obj      Frontend instance
  */
-void cpdbHideTemporaryPrinters(cpdb_frontend_obj_t *frontend_obj);
+void cpdbHideTemporaryPrinters(cpdb_frontend_obj_t *f);
 
 /**
  * Unhide those (temporary) printers which have been discovered by the backend,
@@ -187,7 +205,7 @@ void cpdbHideTemporaryPrinters(cpdb_frontend_obj_t *frontend_obj);
  * 
  * @param frontend_obj      Frontend instance
  */
-void cpdbUnhideTemporaryPrinters(cpdb_frontend_obj_t *frontend_obj);
+void cpdbUnhideTemporaryPrinters(cpdb_frontend_obj_t *f);
 
 /**
  * Read the file installed by the backend and create a proxy object

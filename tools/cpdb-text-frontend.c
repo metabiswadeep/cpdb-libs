@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <locale.h>
+#include <unistd.h>
 
 #include <glib.h>
 #include <libintl.h>
@@ -12,23 +13,10 @@
 
 void display_help();
 gpointer control_thread(gpointer user_data);
+gpointer background_thread(gpointer user_data);
 
 cpdb_frontend_obj_t *f;
 static const char *locale;
-
-static void printBasicOptions(const cpdb_printer_obj_t *p)
-{
-    printf("-------------------------\n");
-    printf("Printer %s\n", p->id);
-    printf("name: %s\n", p->name);
-    printf("location: %s\n", p->location);
-    printf("info: %s\n", p->info);
-    printf("make and model: %s\n", p->make_and_model);
-    printf("accepting jobs? %s\n", (p->accepting_jobs ? "yes" : "no"));
-    printf("state: %s\n", p->state);
-    printf("backend: %s\n", p->backend_name);
-    printf("-------------------------\n\n");
-}
 
 static void printMedia(const cpdb_media_t *media)
 {
@@ -88,7 +76,7 @@ static void displayAllPrinters(cpdb_frontend_obj_t *f)
     while (g_hash_table_iter_next(&iter, &key, &value))
     {
         const cpdb_printer_obj_t *p = value;
-        printBasicOptions(p);
+        cpdbPrintBasicOptions(p);
     }
 }
 
@@ -98,7 +86,7 @@ static void printer_callback(cpdb_frontend_obj_t *f, cpdb_printer_obj_t *p, cpdb
     {
     case CPDB_CHANGE_PRINTER_ADDED:
         g_message("Added printer %s : %s!\n", p->name, p->backend_name);
-        printBasicOptions(p);
+        cpdbPrintBasicOptions(p);
         break;
 
     case CPDB_CHANGE_PRINTER_REMOVED:
@@ -140,16 +128,27 @@ int main(int argc, char **argv)
 
     locale = getenv("LANGUAGE");
 
+    pid_t pid_temp = getpid();
+    char pid[20];
+    snprintf(pid, sizeof(pid), "%d", (int)pid_temp);
+
     char *dialog_bus_name = malloc(300);
     if (argc > 1) //this is for creating multiple instances of a dialog simultaneously
         f = cpdbGetNewFrontendObj(argv[1], printer_cb);
     else
-        f = cpdbGetNewFrontendObj(NULL, printer_cb);
+        f = cpdbGetNewFrontendObj(pid, printer_cb);
 
     /** Uncomment the line below if you don't want to use the previously saved settings**/
     cpdbIgnoreLastSavedSettings(f);
+    // Start the control thread
     GThread *thread = g_thread_new("control_thread", control_thread, NULL);
+    cpdbStartBackendListRefreshing(f);
     g_thread_join(thread);
+    cpdbStopBackendListRefreshing(f);
+    cpdbDeleteFrontendObj(f);
+    free(dialog_bus_name);
+
+    return 0;
 }
 
 gpointer control_thread(gpointer user_data)
@@ -167,34 +166,43 @@ gpointer control_thread(gpointer user_data)
         scanf("%1023s", buf);
         if (strcmp(buf, "stop") == 0)
         {
-            cpdbDeleteFrontendObj(f);
             g_message("Stopping front end..\n");
-	    return (NULL);
+	        return (NULL);
         }
         else if (strcmp(buf, "restart") == 0)
         {
+            g_message("Restarting..\n");
             cpdbDisconnectFromDBus(f);
             cpdbConnectToDBus(f);
+        }
+        else if (strcmp(buf, "get-all-printers") == 0)
+        {
+            cpdbGetAllPrinters(f);
+
         }
         else if (strcmp(buf, "hide-remote") == 0)
         {
             cpdbHideRemotePrinters(f);
             g_message("Hiding remote printers discovered by the backend..\n");
+            f->hide_remote=TRUE;
         }
         else if (strcmp(buf, "unhide-remote") == 0)
         {
             cpdbUnhideRemotePrinters(f);
             g_message("Unhiding remote printers discovered by the backend..\n");
+            f->hide_remote=FALSE;
         }
         else if (strcmp(buf, "hide-temporary") == 0)
         {
             cpdbHideTemporaryPrinters(f);
-            g_message("Hiding remote printers discovered by the backend..\n");
+            g_message("Hiding temporary printers discovered by the backend..\n");
+            f->hide_temporary=TRUE;
         }
         else if (strcmp(buf, "unhide-temporary") == 0)
         {
             cpdbUnhideTemporaryPrinters(f);
-            g_message("Unhiding remote printers discovered by the backend..\n");
+            g_message("Unhiding temporary printers discovered by the backend..\n");
+            f->hide_temporary=FALSE;
         }
         else if (strcmp(buf, "get-all-options") == 0)
         {
@@ -474,16 +482,19 @@ gpointer control_thread(gpointer user_data)
             cpdbAcquireTranslations(p, locale, acquire_translations_callback, NULL);
         }
     }
+    
 }
 
 void display_help()
 {
     g_message("Available commands .. ");
     printf("%s\n", "stop");
+    printf("%s\n", "restart");
     printf("%s\n", "hide-remote");
     printf("%s\n", "unhide-remote");
     printf("%s\n", "hide-temporary");
     printf("%s\n", "unhide-temporary");
+    printf("%s\n", "get-all-printers");
     //printf("%s\n", "ping <printer id> ");
     printf("%s\n", "get-default-printer");
     printf("%s\n", "get-default-printer-for-backend <backend name>");

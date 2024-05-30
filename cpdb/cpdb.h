@@ -17,7 +17,6 @@ extern "C" {
 #include <pwd.h>
 
 #include <cpdb/backend-interface.h>
-#include <cpdb/frontend-interface.h>
 
 /* buffer sizes */
 #define CPDB_BSIZE 512
