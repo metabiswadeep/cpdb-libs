@@ -396,9 +396,9 @@ char *cpdbPrintFile(cpdb_printer_obj_t *printer_obj, const char *file_path);
 
 char *cpdbPrintFileWithJobTitle(cpdb_printer_obj_t *p, const char *file_path, const char *title);
 
-int cpdbPrintFD(cpdb_printer_obj_t *p, char *jobid, const char *title, char *socket_path);
+int cpdbPrintFD(cpdb_printer_obj_t *p, char **jobid, const char *title, char **socket_path);
 
-char *cpdbPrintSocket(cpdb_printer_obj_t *printer_obj, char *jobid, const char *title);
+char *cpdbPrintSocket(cpdb_printer_obj_t *p, char **jobid, const char *title);
 
 
 /**

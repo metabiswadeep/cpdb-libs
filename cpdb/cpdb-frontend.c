@@ -1081,14 +1081,14 @@ char *cpdbPrintFile(cpdb_printer_obj_t *p,
 char *cpdbPrintFileWithJobTitle(cpdb_printer_obj_t *p,
                     const char *file_path, const char *title)
 {
-    char *jobid, *socket_path;
-    int fd = cpdbPrintFD(p, jobid, title, socket_path);
+    char *jobid = NULL;
+    char *socket_path = NULL;
+    int fd = cpdbPrintFD(p, &jobid, title, &socket_path);
     if (fd == -1) {
         logerror("Error connecting to backend for printing file %s on %s %s: %s\n",
                  file_path, p->id, p->backend_name, strerror(errno));
         return NULL;
     }
-
 
     FILE *file = fopen(file_path, "r");
     if (file == NULL) {
@@ -1101,15 +1101,16 @@ char *cpdbPrintFileWithJobTitle(cpdb_printer_obj_t *p,
     char buffer[1024];
     size_t bytesRead;
 
-    while ((bytesRead = fread(buffer, 1, sizeof(buffer), file)) > 0)
+    while ((bytesRead = fread(buffer, 1, sizeof(buffer), file)) > 0) {
         if (write(fd, buffer, bytesRead) != bytesRead) {
-	    fclose(file);
+            fclose(file);
             close(fd);
             unlink(socket_path);
             logerror("Error sending file %s on %s %s: %s\n",
                      file_path, p->id, p->backend_name, strerror(errno));
             return NULL;
         }
+    }
 
     fclose(file);
     close(fd);
@@ -1118,43 +1119,40 @@ char *cpdbPrintFileWithJobTitle(cpdb_printer_obj_t *p,
     return jobid;
 }
 
-
 int cpdbPrintFD(cpdb_printer_obj_t *p,
-                char *jobid, const char *title, char *socket_path)
+                char **jobid, const char *title, char **socket_path)
 {
-    socket_path = cpdbPrintSocket(p, jobid, title);
-    if (socket_path == NULL) {
+    *socket_path = cpdbPrintSocket(p, jobid, title);
+    if (*socket_path == NULL) {
         logerror("Error getting socket for job on %s %s: %s\n",
-		 p->id, p->backend_name, strerror(errno));
+                 p->id, p->backend_name, strerror(errno));
         return -1;
     }
 
     int fd = socket(AF_UNIX, SOCK_STREAM, 0);
     if (fd == -1) {
         logerror("Error creating fd for job %s on %s %s with socket %s: %s\n",
-		 jobid, p->id, p->backend_name, socket_path, strerror(errno));
+                 *jobid, p->id, p->backend_name, *socket_path, strerror(errno));
         return -1;
     }
 
     struct sockaddr_un server_addr;
     memset(&server_addr, 0, sizeof(server_addr));
     server_addr.sun_family = AF_UNIX;
-    strncpy(server_addr.sun_path, socket_path, sizeof(server_addr.sun_path) - 1);
+    strncpy(server_addr.sun_path, *socket_path, sizeof(server_addr.sun_path) - 1);
 
     int res = connect(fd, (struct sockaddr *)&server_addr, sizeof(server_addr));
     if (res == -1) {
-        logerror("Error connecting to socket for %s on %s %s, socket %s: %s\n", jobid, p->id, p->backend_name, socket_path, strerror(errno));
+        logerror("Error connecting to socket for %s on %s %s, socket %s: %s\n",
+                 *jobid, p->id, p->backend_name, *socket_path, strerror(errno));
         close(fd);  // Close the socket in case of an error
         return -1;
     }
 
-    // unlink(socket_path); // The socket is only for one single job
-
     return fd;
 }
 
-char *cpdbPrintSocket(cpdb_printer_obj_t *p,
-                    char *jobid, const char *title)
+char *cpdbPrintSocket(cpdb_printer_obj_t *p, char **jobid, const char *title)
 {
     char *socket;
     GError *error = NULL;   
@@ -1164,35 +1162,31 @@ char *cpdbPrintSocket(cpdb_printer_obj_t *p,
                                        p->settings->count,
                                        cpdbSerializeToGVariant(p->settings),
                                        title,
-                                       &jobid,
+                                       jobid,
                                        &socket,
                                        NULL,
                                        &error);
                                        
-    if (error)
-    {
+    if (error) {
         logerror("Error opening socket on %s %s : %s\n", 
                     p->id, p->backend_name, error->message);
         return NULL;
     }
     
-    if (jobid == NULL || jobid == "")
-    {
+    if (*jobid == NULL || **jobid == '\0') {
         logerror("Error while trying to create a job on %s %s: Couldn't create a job\n", 
                     p->id, p->backend_name);
         return NULL;
-        unlink(socket);
     }
 
-    if (socket == NULL || socket == "")
-    {
+    if (socket == NULL || *socket == '\0') {
         logerror("Error opening socket on %s %s: Couldn't create a socket\n", 
                     p->id, p->backend_name);
         return NULL;
     }
     
     loginfo("Socket opened for printing job %s on %s %s successfully: %s\n",
-	    jobid, p->id, p->backend_name, socket);
+            *jobid, p->id, p->backend_name, socket);
     cpdbSaveSettingsToDisk(p->settings);
     return socket;
 }
