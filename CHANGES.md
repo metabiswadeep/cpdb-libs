@@ -1,4 +1,75 @@
-# CHANGES - Common Print Dialog Backends - Libraries - v2.0b5 - 2023-08-02
+# CHANGES - Common Print Dialog Backends - Libraries - v2.0b6 - 2024-06-18
+
+## CHANGES IN V2.0b6 (18th June 2024)
+
+ - Stream print data through a Unix domain socket
+   To ease making a Snap from the CPDB backend for CUPS (and other
+   CPDB backends in the future) we now transfer the print job data
+   from the dialog to the backend via a Unix domain socket and not by
+   dropping the data into a file (PR #30).
+
+ - Add newly appearing backends while the dialog is open
+   CPDB Backends can get installed or removed at any time, also while
+   a print dialog is open. Now a background thread is added to observe
+   the come and go of backends and to update the printer list
+   appropriately. New API functions are
+   cpdbStartBackendListRefreshing() and cpdbStopBackendListRefreshing,
+   to start and stop this thread (PR #32).
+
+ - Added support for CPDB backends running permanently
+   Do not only find backends as registered D-Bus services (*.service) files
+   but also permanently running backends which are not necessarily registered
+   D-Bus services
+
+ - Let the frontend not be a D-Bus service, only the backends
+   To control hiding temporary or remote printers in the backend's
+   printer list we have added methods to the D-Bus service provided by
+   the backends now. Before, the frontends were also D-Bus services
+   just to send signals to the backends for controling the filtering
+   (PR #32).
+
+ - Convenience API functions to start/stop listing printers
+   Added convenience API functions cpdbStartListingPrinters() and
+   cpdbStopListingPrinters() to be called when opening and closing the
+   print dialog, resp. (PR #32).
+
+ - Removed API functions cpdbGetAllJobs(), cpdbGetActiveJobsCount(),
+   cpdbCancelJob(), and cpdbPrintFilePath() and the corresponding
+   D-Bus methods (PR #30).
+
+ - Removed support for the "FILE" CPDB backend (PR #30).
+
+ - cpdbActivateBackends(): Fixed crash caused by wrong unreferencing
+
+ - cpdbConnectToDBus(): Use g_main_context_get_thread_default() for wait loop
+   g_main_context_get_thread_default() always returns a valid context and
+   never NULL. This way we avoid crashes.
+
+ - Fixed crash when Handling saved settings
+   Let cpdbReadSettingsFromDisk() return an empty data structure
+   instead of NULL when there are no saved settings. Also let
+   cpdbIgnoreLastSavedSettings() always output and empty data
+   structure.
+
+ - Removed the commands, "get-all-jobs", "get-active-jobs-count", and
+   "cancel-job" from the "cpdb-text-frontend" utility (PR #30).
+
+ - cpdb-text-frontend: Removed unnecessary g_main_loop
+   The g_main_loop is not actually needed, the main thread can just wait
+   for the background thread using g_thread_join().
+
+ - cpdb-text-frontend: Shut down cleanly with "stop" command
+   Instead of committing suicide with "exit(0);" we actually quit the
+   main loop now.
+
+ - cpdb-text-frontend: Spawn command interpreter not before the start
+   of the main loop, to assure that "stop" command quits main loop
+   and we do not fall into an infinite loop.
+
+ - cpdb-text-frontend: acquire_translations_callback(): Only issue the
+   success message and list the translation if the loading of the
+   translations actually succeeded.
+
 
 ## CHANGES IN V2.0b5 (2nd August 2023)
 
