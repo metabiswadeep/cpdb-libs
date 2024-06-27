@@ -32,6 +32,8 @@ On Debian based distros, these can be installed by running: \
 
 Also install at least one of the backends (cpdb-backend-...).
 
+NOTE: The communication protocol between frontends and backends has changed (Job data streaming via domain socket, printer list filteringvia D-Bus methods). Therefore use backends of at least version 2.0b6.
+
 ## Testing the library
 
 The project also includes a sample command line frontend (using the `cpdb-libs-frontend` API) that you can use to test whether the installed libraries and print backends work as expected.
