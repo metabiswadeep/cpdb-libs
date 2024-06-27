@@ -160,7 +160,7 @@ static void on_printer_state_changed(GDBusConnection *connection,
     f->printer_cb(f, p, CPDB_CHANGE_PRINTER_STATE_CHANGED);
 }
 
-static GDBusConnection *get_dbus_connection()
+GDBusConnection *cpdbGetDbusConnection()
 {
     gchar *bus_addr;
     GError *error = NULL;
@@ -190,7 +190,7 @@ void cpdbConnectToDBus(cpdb_frontend_obj_t *f)
     GMainContext *context;
     GError *error = NULL;
 
-    if ((f->connection = get_dbus_connection()) == NULL)
+    if ((f->connection = cpdbGetDbusConnection()) == NULL)
     {
         loginfo("Couldn't connect to DBus\n");
         return;
@@ -289,6 +289,69 @@ static void fetchPrinterListFromBackend(cpdb_frontend_obj_t *f, const char *back
             cpdbCopySettings(f->last_saved_settings, p->settings);
         cpdbAddPrinter(f, p);
     }
+}
+
+bool cpdbRefreshPrinterList(cpdb_frontend_obj_t *f, char *backend) 
+{ 
+    int num_printers; 
+    GVariantIter iter; 
+    GVariant *printers, *printer;
+    PrintBackend *proxy; 
+    GError *error = NULL; 
+    cpdb_printer_obj_t *p; 
+ 
+    if ((proxy = g_hash_table_lookup(f->backend, backend)) == NULL) 
+    { 
+        logerror("Couldn't get %s proxy object\n", backend); 
+        return false; 
+    } 
+    print_backend_call_get_all_printers_sync (proxy, &num_printers, 
+                                                &printers, NULL, &error); 
+    if (error) 
+    { 
+        logerror("Error getting %s printer list : %s\n", backend, error->message); 
+        return false; 
+    } 
+    logdebug("Fetched %d printers from backend %s\n", num_printers, backend); 
+    g_variant_iter_init(&iter, printers); 
+    while (g_variant_iter_loop(&iter, "(v)", &printer)) 
+    { 
+        p = cpdbGetNewPrinterObj(); 
+        cpdbFillBasicOptions(p, printer); 
+        if (f->last_saved_settings != NULL) 
+            cpdbCopySettings(f->last_saved_settings, p->settings); 
+        cpdbAddPrinter(f, p); 
+    } 
+ 
+    GHashTableIter iterator; 
+    gpointer key, value; 
+ 
+    g_hash_table_iter_init(&iterator, f->printer); 
+ 
+    while (g_hash_table_iter_next(&iterator, &key, &value)) { 
+        cpdb_printer_obj_t* printer_obj = (cpdb_printer_obj_t*)value; 
+        char* backend_name = printer_obj->backend_name; 
+ 
+        // Compare the backend_name with the provided one 
+        if (strcmp(backend_name, backend) == 0) { 
+            // Check if backend_name is not in the printers hashtable 
+            char *printer_name = cpdbConcatSep(printer_obj->id, backend_name); 
+            g_variant_iter_init(&iter, printers); 
+            int printer_exists = 0;
+            while (g_variant_iter_loop(&iter, "(v)", &printer)) 
+            { 
+                cpdb_printer_obj_t *temp = cpdbGetNewPrinterObj();
+                cpdbFillBasicOptions(temp, printer);
+                if (strcmp(temp->name, printer_obj->name) == 0){
+                    printer_exists = 1;
+                    break;
+                }
+                cpdbDeletePrinterObj(temp);
+            }
+            if(printer_exists == 0) cpdbRemovePrinter(f, printer_obj->id, backend_name);
+        }
+    }
+    return true;
 }
 
 // Helper function to add existing backends to a hash table
@@ -1307,7 +1370,7 @@ cpdb_printer_obj_t *cpdbResurrectPrinterFromFile(const char *filename)
     p->backend_name = cpdbGetStringCopy(strtok(buf, "#"));
     
     service_name = cpdbConcat(CPDB_BACKEND_PREFIX, p->backend_name);
-    if ((connection = get_dbus_connection()) == NULL)
+    if ((connection = cpdbGetDbusConnection()) == NULL)
     {
         logerror("Error resurrecting printer : Couldn't get dbus connection\n");
         goto failed;

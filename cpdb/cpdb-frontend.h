@@ -2,6 +2,7 @@
 #define _CPDB_CPDB_FRONTEND_H_
 
 #include <glib.h>
+#include <stdbool.h>
 
 #ifdef __cplusplus
 extern "C"
@@ -115,6 +116,8 @@ void cpdbDeleteFrontendObj(cpdb_frontend_obj_t *frontend_obj);
  * @param frontend_obj      Frontend instance to connect to DBus
  */
 void cpdbConnectToDBus(cpdb_frontend_obj_t *frontend_obj);
+
+GDBusConnection *cpdbGetDbusConnection();
 
 /**
  * Disconnect from the DBus.
@@ -400,6 +403,7 @@ int cpdbPrintFD(cpdb_printer_obj_t *p, char **jobid, const char *title, char **s
 
 char *cpdbPrintSocket(cpdb_printer_obj_t *p, char **jobid, const char *title);
 
+bool cpdbRefreshPrinterList(cpdb_frontend_obj_t *f, char *backend);
 
 /**
  * Set an option value for a printer.
