@@ -80,26 +80,6 @@ static void displayAllPrinters(cpdb_frontend_obj_t *f)
     }
 }
 
-static void printer_callback(cpdb_frontend_obj_t *f, cpdb_printer_obj_t *p, cpdb_printer_update_t change)
-{
-    switch(change)
-    {
-    case CPDB_CHANGE_PRINTER_ADDED:
-        g_message("Added printer %s : %s!\n", p->name, p->backend_name);
-        cpdbPrintBasicOptions(p);
-        break;
-
-    case CPDB_CHANGE_PRINTER_REMOVED:
-        g_message("Removed printer %s : %s!\n", p->name, p->backend_name);
-        cpdbDeletePrinterObj(p);
-        break;
-    
-    case CPDB_CHANGE_PRINTER_STATE_CHANGED:
-        g_message("Printer state changed for %s : %s to \"%s\"", p->name, p->backend_name, p->state);
-        break;
-    }
-}
-
 static void acquire_details_callback(cpdb_printer_obj_t *p, int success, void *user_data)
 {
     if (success)
@@ -121,7 +101,7 @@ static void acquire_translations_callback(cpdb_printer_obj_t *p, int success, vo
 
 int main(int argc, char **argv)
 {
-    cpdb_printer_callback printer_cb = (cpdb_printer_callback)printer_callback;
+    cpdb_printer_callback printer_cb = (cpdb_printer_callback)cpdbPrinterCallback;
 
     setlocale (LC_ALL, "");
     cpdbInit();

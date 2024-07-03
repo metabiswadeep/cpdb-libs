@@ -4,28 +4,6 @@
 #include <sys/un.h>
 #include <stdbool.h>
 
-static void                 on_printer_added                (GDBusConnection *          connection,
-                                                             const gchar *              sender_name,
-                                                             const gchar *              object_path,
-                                                             const gchar *              interface_name,
-                                                             const gchar *              signal_name,
-                                                             GVariant *                 parameters,
-                                                             gpointer                   user_data);
-static void                 on_printer_removed              (GDBusConnection *          connection,
-                                                             const gchar *              sender_name,
-                                                             const gchar *              object_path,
-                                                             const gchar *              interface_name,
-                                                             const gchar *              signal_name,
-                                                             GVariant *                 parameters,
-                                                             gpointer                   user_data);
-static void                 on_printer_state_changed        (GDBusConnection *          connection,
-                                                             const gchar *              sender_name,
-                                                             const gchar *              object_path,
-                                                             const gchar *              interface_name,
-                                                             const gchar *              signal_name,
-                                                             GVariant *                 parameters,
-                                                             gpointer                   user_data);
-
 static void                 fetchPrinterListFromBackend     (cpdb_frontend_obj_t *      frontend_obj,
                                                              const char *               backend);
                                              
@@ -99,13 +77,32 @@ void cpdbDeleteFrontendObj(cpdb_frontend_obj_t *f)
     free(f);
 }
 
-static void on_printer_added(GDBusConnection *connection,
-                             const gchar *sender_name,
-                             const gchar *object_path,
-                             const gchar *interface_name,
-                             const gchar *signal_name,
-                             GVariant *parameters,
-                             gpointer user_data)
+void cpdbPrinterCallback(cpdb_frontend_obj_t *f, cpdb_printer_obj_t *p, cpdb_printer_update_t change)
+{
+    switch(change)
+    {
+    case CPDB_CHANGE_PRINTER_ADDED:
+        g_message("Added printer %s : %s!\n", p->name, p->backend_name);
+        break;
+
+    case CPDB_CHANGE_PRINTER_REMOVED:
+        g_message("Removed printer %s : %s!\n", p->name, p->backend_name);
+        cpdbDeletePrinterObj(p);
+        break;
+    
+    case CPDB_CHANGE_PRINTER_STATE_CHANGED:
+        g_message("Printer state changed for %s : %s to \"%s\"", p->name, p->backend_name, p->state);
+        break;
+    }
+}
+
+void cpdbOnPrinterAdded(GDBusConnection *connection,
+                        const gchar *sender_name,
+                        const gchar *object_path,
+                        const gchar *interface_name,
+                        const gchar *signal_name,
+                        GVariant *parameters,
+                        gpointer user_data)
 {
     cpdb_frontend_obj_t *f = (cpdb_frontend_obj_t *)user_data;
     cpdb_printer_obj_t *p = cpdbGetNewPrinterObj();
@@ -121,13 +118,13 @@ static void on_printer_added(GDBusConnection *connection,
     f->printer_cb(f, p, CPDB_CHANGE_PRINTER_ADDED);
 }
 
-static void on_printer_removed(GDBusConnection *connection,
-                               const gchar *sender_name,
-                               const gchar *object_path,
-                               const gchar *interface_name,
-                               const gchar *signal_name,
-                               GVariant *parameters,
-                               gpointer user_data)
+void cpdbOnPrinterRemoved(GDBusConnection *connection,
+                          const gchar *sender_name,
+                          const gchar *object_path,
+                          const gchar *interface_name,
+                          const gchar *signal_name,
+                          GVariant *parameters,
+                          gpointer user_data)
 {
     cpdb_frontend_obj_t *f = (cpdb_frontend_obj_t *)user_data;
     char *printer_id;
@@ -138,13 +135,13 @@ static void on_printer_removed(GDBusConnection *connection,
     f->printer_cb(f, p, CPDB_CHANGE_PRINTER_REMOVED);
 }
 
-static void on_printer_state_changed(GDBusConnection *connection,
-                                     const gchar *sender_name,
-                                     const gchar *object_path,
-                                     const gchar *interface_name,
-                                     const gchar *signal_name,
-                                     GVariant *parameters,
-                                     gpointer user_data)
+void cpdbOnPrinterStateChanged(GDBusConnection *connection,
+                               const gchar *sender_name,
+                               const gchar *object_path,
+                               const gchar *interface_name,
+                               const gchar *signal_name,
+                               GVariant *parameters,
+                               gpointer user_data)
 {
     cpdb_frontend_obj_t *f = (cpdb_frontend_obj_t *) user_data;
     gboolean printer_is_accepting_jobs;
@@ -203,7 +200,7 @@ void cpdbConnectToDBus(cpdb_frontend_obj_t *f)
                                        NULL,                            /**match on all object paths**/
                                        NULL,                            /**match on all arguments**/
                                        0,                               //Flags
-                                       on_printer_added,                //callback
+                                       cpdbOnPrinterAdded,                //callback
                                        NULL,                            //user_data
                                        NULL);
 
@@ -214,7 +211,7 @@ void cpdbConnectToDBus(cpdb_frontend_obj_t *f)
                                        NULL,                            /**match on all object paths**/
                                        NULL,                            /**match on all arguments**/
                                        0,                               //Flags
-                                       on_printer_removed,              //callback
+                                       cpdbOnPrinterRemoved,              //callback
                                        NULL,                            //user_data
                                        NULL);
     g_dbus_connection_signal_subscribe(f->connection,
@@ -224,7 +221,7 @@ void cpdbConnectToDBus(cpdb_frontend_obj_t *f)
                                        NULL,                                /**match on all object paths**/
                                        NULL,                                /**match on all arguments**/
                                        0,                                   //Flags
-                                       on_printer_state_changed,            //callback
+                                       cpdbOnPrinterStateChanged,            //callback
                                        NULL,                                //user_data
                                        NULL);
 
