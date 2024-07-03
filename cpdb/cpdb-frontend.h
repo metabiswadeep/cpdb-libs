@@ -421,7 +421,6 @@ void cpdbOnPrinterStateChanged(GDBusConnection *connection, const gchar *sender_
                                const gchar *object_path, const gchar *interface_name,
                                const gchar *signal_name, GVariant *parameters,
                                gpointer user_data);
-bool cpdbRefreshPrinterList(cpdb_frontend_obj_t *f, char *backend);
 
 /**
  * Set an option value for a printer.
