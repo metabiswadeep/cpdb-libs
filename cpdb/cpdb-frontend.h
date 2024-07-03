@@ -405,6 +405,23 @@ char *cpdbPrintSocket(cpdb_printer_obj_t *p, char **jobid, const char *title);
 
 bool cpdbRefreshPrinterList(cpdb_frontend_obj_t *f, char *backend);
 
+void cpdbPrinterCallback(cpdb_frontend_obj_t *f, cpdb_printer_obj_t *p, cpdb_printer_update_t change);
+
+void cpdbOnPrinterAdded(GDBusConnection *connection, const gchar *sender_name,
+                        const gchar *object_path, const gchar *interface_name,
+                        const gchar *signal_name, GVariant *parameters,
+                        gpointer user_data);
+
+void cpdbOnPrinterRemoved(GDBusConnection *connection, const gchar *sender_name,
+                          const gchar *object_path, const gchar *interface_name,
+                          const gchar *signal_name, GVariant *parameters,
+                          gpointer user_data);
+
+void cpdbOnPrinterStateChanged(GDBusConnection *connection, const gchar *sender_name,
+                               const gchar *object_path, const gchar *interface_name,
+                               const gchar *signal_name, GVariant *parameters,
+                               gpointer user_data);
+
 /**
  * Set an option value for a printer.
  * Updates the value if one is already set.
