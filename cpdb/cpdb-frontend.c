@@ -12,9 +12,6 @@ static GList *              cpdbLoadDefaultPrinters         (const char *       
 static int                  cpdbSetDefaultPrinter           (const char *               path,
                                                              cpdb_printer_obj_t *       printer_obj);
 
-static void                 cpdbFillBasicOptions            (cpdb_printer_obj_t *       printer_obj,
-                                                             GVariant *                 variant);
-
 static void                 cpdbDeleteTranslations          (cpdb_printer_obj_t *       printer_obj);
 
 static void                 cpdbUnpackOptions               (int                        num_options,
@@ -958,7 +955,7 @@ void cpdbDeletePrinterObj(cpdb_printer_obj_t *p)
     free(p);
 }
 
-static void cpdbFillBasicOptions(cpdb_printer_obj_t *p,
+void cpdbFillBasicOptions(cpdb_printer_obj_t *p,
                           GVariant *gv)
 {
     g_variant_get(gv, CPDB_PRINTER_ADDED_ARGS,
