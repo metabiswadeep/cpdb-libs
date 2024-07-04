@@ -422,6 +422,8 @@ void cpdbOnPrinterStateChanged(GDBusConnection *connection, const gchar *sender_
                                const gchar *signal_name, GVariant *parameters,
                                gpointer user_data);
 
+void cpdbFillBasicOptions(cpdb_printer_obj_t *p, GVariant *gv);
+
 /**
  * Set an option value for a printer.
  * Updates the value if one is already set.
