@@ -33,8 +33,7 @@ ________________________________________________ cpdb_frontend_obj_t ___________
 
 **/
 
-cpdb_frontend_obj_t *cpdbGetNewFrontendObj(const char *instance_name,
-                                           cpdb_printer_callback printer_cb)
+cpdb_frontend_obj_t *cpdbGetNewFrontendObj(cpdb_printer_callback printer_cb)
 {
     cpdb_frontend_obj_t *f = g_new0(cpdb_frontend_obj_t, 1);
     
@@ -472,9 +471,9 @@ void cpdbStopBackendListRefreshing(cpdb_frontend_obj_t *f) {
     g_thread_join(f->background_thread);
 }
 
-cpdb_frontend_obj_t *cpdbStartListingPrinters(const char *inst_name, cpdb_printer_callback printer_cb){
+cpdb_frontend_obj_t *cpdbStartListingPrinters(cpdb_printer_callback printer_cb){
     cpdbInit();
-    cpdb_frontend_obj_t *f = cpdbGetNewFrontendObj(inst_name, printer_cb);
+    cpdb_frontend_obj_t *f = cpdbGetNewFrontendObj(printer_cb);
     cpdbConnectToDBus(f);
     cpdbStartBackendListRefreshing(f); // Start bg task to check for backends coming/going
     return f;

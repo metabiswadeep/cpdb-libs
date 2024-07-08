@@ -101,7 +101,7 @@ struct cpdb_frontend_obj_s
  * 
  * @return                  Frontend instance
  */
-cpdb_frontend_obj_t *cpdbGetNewFrontendObj(const char *instance_name, cpdb_printer_callback printer_cb);
+cpdb_frontend_obj_t *cpdbGetNewFrontendObj(cpdb_printer_callback printer_cb);
 
 /**
  * Free up a frontend instance.
@@ -177,7 +177,7 @@ void cpdbPrintBasicOptions(const cpdb_printer_obj_t *p);
 void cpdbActivateBackends(cpdb_frontend_obj_t *f);
 void cpdbStartBackendListRefreshing(cpdb_frontend_obj_t *f);
 void cpdbStopBackendListRefreshing(cpdb_frontend_obj_t *f);
-cpdb_frontend_obj_t *cpdbStartListingPrinters(const char *instance_name, cpdb_printer_callback printer_cb);
+cpdb_frontend_obj_t *cpdbStartListingPrinters(cpdb_printer_callback printer_cb);
 void cpdbStopListingPrinters(cpdb_frontend_obj_t *f);
 
 /**
