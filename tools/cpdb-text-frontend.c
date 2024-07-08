@@ -115,10 +115,7 @@ int main(int argc, char **argv)
     snprintf(pid, sizeof(pid), "%d", (int)pid_temp);
 
     char *dialog_bus_name = malloc(300);
-    if (argc > 1) //this is for creating multiple instances of a dialog simultaneously
-        f = cpdbGetNewFrontendObj(argv[1], printer_cb);
-    else
-        f = cpdbGetNewFrontendObj(pid, printer_cb);
+    f = cpdbGetNewFrontendObj(printer_cb);
 
     /** Uncomment the line below if you don't want to use the previously saved settings**/
     cpdbIgnoreLastSavedSettings(f);
