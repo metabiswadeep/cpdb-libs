@@ -530,7 +530,7 @@ char *cpdbPrintSocket(cpdb_printer_obj_t *p, char **jobid, const char *title);
  * 
  * @return                 True if the refresh was successful, false otherwise
  */
-bool cpdbRefreshPrinterList(cpdb_frontend_obj_t *f, char *backend);
+bool cpdbRefreshPrinterList(cpdb_frontend_obj_t *f, const char *backend);
 
 /**
  * Callback function for printer events.
