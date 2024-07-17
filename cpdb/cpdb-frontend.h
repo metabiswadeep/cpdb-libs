@@ -166,18 +166,109 @@ gboolean cpdbAddPrinter(cpdb_frontend_obj_t *frontend_obj, cpdb_printer_obj_t *p
 cpdb_printer_obj_t *cpdbRemovePrinter(cpdb_frontend_obj_t *f, const char *printer_id, const char *backend_name);
 
 
+/**
+ * Hashtable lookup for hiding remote printers.
+ * 
+ * @param key              Key for the lookup
+ * @param value            Value for the lookup
+ * @param user_data        User data
+ */
 void hideRemoteLookup(gpointer key, gpointer value, gpointer user_data);
+
+/**
+ * Hashtable lookup for showing remote printers.
+ * 
+ * @param key              Key for the lookup
+ * @param value            Value for the lookup
+ * @param user_data        User data
+ */
 void showRemoteLookup(gpointer key, gpointer value, gpointer user_data);
+
+/**
+ * Hashtable lookup for hiding temporary printers.
+ * 
+ * @param key              Key for the lookup
+ * @param value            Value for the lookup
+ * @param user_data        User data
+ */
 void hideTemporaryLookup(gpointer key, gpointer value, gpointer user_data);
+
+/**
+ * Hashtable lookup for showing temporary printers.
+ * 
+ * @param key              Key for the lookup
+ * @param value            Value for the lookup
+ * @param user_data        User data
+ */
 void showTemporaryLookup(gpointer key, gpointer value, gpointer user_data);
+
+/**
+ * Hashtable lookup to stop listing printers.
+ * 
+ * @param key              Key for the lookup
+ * @param value            Value for the lookup
+ * @param user_data        User data
+ */
 void stopListingLookup(gpointer key, gpointer value, gpointer user_data);
+
+/**
+ * Hashtable lookup to get all printers.
+ * 
+ * @param key              Key for the lookup
+ * @param value            Value for the lookup
+ * @param user_data        User data
+ */
 void getAllPrintersLookup(gpointer key, gpointer value, gpointer user_data);
+
+/**
+ * Get all printers associated with the frontend object.
+ * 
+ * @param f                Frontend instance
+ */
 void cpdbGetAllPrinters(cpdb_frontend_obj_t *f);
+
+/**
+ * Print basic options for the printer object.
+ * 
+ * @param p                Printer object
+ */
 void cpdbPrintBasicOptions(const cpdb_printer_obj_t *p);
+
+/**
+ * Activate backends associated with the frontend object.
+ * 
+ * @param f                Frontend instance
+ */
 void cpdbActivateBackends(cpdb_frontend_obj_t *f);
+
+/**
+ * Start the background thread for refreshing the backend list.
+ * 
+ * @param f                Frontend instance
+ */
 void cpdbStartBackendListRefreshing(cpdb_frontend_obj_t *f);
+
+/**
+ * Stop the background thread for refreshing the backend list
+ * 
+ * @param f                Frontend instance
+ */
 void cpdbStopBackendListRefreshing(cpdb_frontend_obj_t *f);
+
+/**
+ * Start listing printers of the backend.
+ * 
+ * @param printer_cb       Callback function to be called when printers are listed
+ * 
+ * @return                 Frontend instance for the printer listing
+ */
 cpdb_frontend_obj_t *cpdbStartListingPrinters(cpdb_printer_callback printer_cb);
+
+/**
+ * Stop listing printers associated with the frontend object.
+ * 
+ * @param f                Frontend instance
+ */
 void cpdbStopListingPrinters(cpdb_frontend_obj_t *f);
 
 /**
@@ -397,31 +488,113 @@ char *cpdbGetCurrent(cpdb_printer_obj_t *printer_obj, const char *option_name);
  */
 char *cpdbPrintFile(cpdb_printer_obj_t *printer_obj, const char *file_path);
 
+/**
+ * Submit a file for printing with a job title, using the settings set previously.
+ * 
+ * @param p                Printer object
+ * @param file_path        Path of file to print
+ * @param title            Job title
+ * 
+ * @return                 Job ID if created, NULL otherwise
+ */
 char *cpdbPrintFileWithJobTitle(cpdb_printer_obj_t *p, const char *file_path, const char *title);
 
+/**
+ * Print using a file descriptor, using the settings set previously.
+ * 
+ * @param p                Printer object
+ * @param jobid            Job ID
+ * @param title            Job title
+ * @param socket_path      Socket path
+ * 
+ * @return                 File descriptor
+ */
 int cpdbPrintFD(cpdb_printer_obj_t *p, char **jobid, const char *title, char **socket_path);
 
+/**
+ * Print to a socket, using the settings set previously.
+ * 
+ * @param p                Printer object
+ * @param jobid            Job ID
+ * @param title            Job title
+ * 
+ * @return                 Socket if created, NULL otherwise
+ */
 char *cpdbPrintSocket(cpdb_printer_obj_t *p, char **jobid, const char *title);
 
+/**
+ * Refresh the printer list for a specific backend.
+ * 
+ * @param f                Frontend instance
+ * @param backend          Backend name
+ * 
+ * @return                 True if the refresh was successful, false otherwise
+ */
 bool cpdbRefreshPrinterList(cpdb_frontend_obj_t *f, char *backend);
 
+/**
+ * Callback function for printer events.
+ * 
+ * @param f                Frontend instance
+ * @param p                Printer object
+ * @param change           Type of change (added, removed, state changed)
+ */
 void cpdbPrinterCallback(cpdb_frontend_obj_t *f, cpdb_printer_obj_t *p, cpdb_printer_update_t change);
 
+/**
+ * Callback function for when a printer is added.
+ * 
+ * @param connection       DBus connection
+ * @param sender_name      Sender name
+ * @param object_path      Object path
+ * @param interface_name   Interface name
+ * @param signal_name      Signal name
+ * @param parameters       Signal parameters
+ * @param user_data        User data
+ */
 void cpdbOnPrinterAdded(GDBusConnection *connection, const gchar *sender_name,
                         const gchar *object_path, const gchar *interface_name,
                         const gchar *signal_name, GVariant *parameters,
                         gpointer user_data);
 
+/**
+ * Callback function for when a printer is removed.
+ * 
+ * @param connection       DBus connection
+ * @param sender_name      Sender name
+ * @param object_path      Object path
+ * @param interface_name   Interface name
+ * @param signal_name      Signal name
+ * @param parameters       Signal parameters
+ * @param user_data        User data
+ */
 void cpdbOnPrinterRemoved(GDBusConnection *connection, const gchar *sender_name,
                           const gchar *object_path, const gchar *interface_name,
                           const gchar *signal_name, GVariant *parameters,
                           gpointer user_data);
 
+/**
+ * Callback function for when a printer's state changes.
+ * 
+ * @param connection       DBus connection
+ * @param sender_name      Sender name
+ * @param object_path      Object path
+ * @param interface_name   Interface name
+ * @param signal_name      Signal name
+ * @param parameters       Signal parameters
+ * @param user_data        User data
+ */
 void cpdbOnPrinterStateChanged(GDBusConnection *connection, const gchar *sender_name,
                                const gchar *object_path, const gchar *interface_name,
                                const gchar *signal_name, GVariant *parameters,
                                gpointer user_data);
 
+/**
+ * Fill basic options for a printer from a GVariant.
+ * 
+ * @param p                Printer object
+ * @param gv               GVariant containing the options
+ */
 void cpdbFillBasicOptions(cpdb_printer_obj_t *p, GVariant *gv);
 
 /**
