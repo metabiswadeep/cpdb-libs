@@ -197,7 +197,7 @@ void cpdbConnectToDBus(cpdb_frontend_obj_t *f)
                                        NULL,                            /**match on all arguments**/
                                        0,                               //Flags
                                        cpdbOnPrinterAdded,                //callback
-                                       NULL,                            //user_data
+                                       f,                            //user_data
                                        NULL);
 
     g_dbus_connection_signal_subscribe(f->connection,
@@ -208,7 +208,7 @@ void cpdbConnectToDBus(cpdb_frontend_obj_t *f)
                                        NULL,                            /**match on all arguments**/
                                        0,                               //Flags
                                        cpdbOnPrinterRemoved,              //callback
-                                       NULL,                            //user_data
+                                       f,                            //user_data
                                        NULL);
     g_dbus_connection_signal_subscribe(f->connection,
                                        NULL,                                //Sender name
@@ -218,7 +218,7 @@ void cpdbConnectToDBus(cpdb_frontend_obj_t *f)
                                        NULL,                                /**match on all arguments**/
                                        0,                                   //Flags
                                        cpdbOnPrinterStateChanged,            //callback
-                                       NULL,                                //user_data
+                                       f,                                //user_data
                                        NULL);
 
 
