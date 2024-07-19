@@ -751,7 +751,6 @@ cpdb_printer_obj_t *cpdbGetDefaultPrinter(cpdb_frontend_obj_t *f)
 {   
     gpointer key, value;
     GHashTableIter iter;
-    bool is_dynamic;
     char *conf_dir, *path, *printer_id, *backend_name;
     cpdb_printer_obj_t *default_printer = NULL;
     GList *printer, *user_printers, *system_printers, *printers = NULL;
@@ -772,13 +771,13 @@ cpdb_printer_obj_t *cpdbGetDefaultPrinter(cpdb_frontend_obj_t *f)
         free(path);
         free(conf_dir);
     }
-    conf_dir = cpdbGetSysConfDir(&is_dynamic);
+    conf_dir = cpdbGetSysConfDir();
     if (conf_dir)
     {
         path = cpdbConcatPath(conf_dir, CPDB_DEFAULT_PRINTERS_FILE);
         printers = g_list_concat(printers, cpdbLoadDefaultPrinters(path));
         free(path);
-        if (is_dynamic) free(conf_dir);
+        free(conf_dir);
     }
     
     for (printer = printers; printer != NULL; printer = printer->next)
@@ -901,9 +900,8 @@ int cpdbSetSystemDefaultPrinter(cpdb_printer_obj_t *p)
 {
     int ret;
     char *conf_dir, *path;
-    bool is_dynamic;
 
-    if ((conf_dir = cpdbGetSysConfDir(&is_dynamic)) == NULL)
+    if ((conf_dir = cpdbGetSysConfDir()) == NULL)
     {
         logerror("Error setting default printer : Couldn't get system config dir\n");
         return 0;
@@ -912,7 +910,7 @@ int cpdbSetSystemDefaultPrinter(cpdb_printer_obj_t *p)
     ret = cpdbSetDefaultPrinter(path, p);
 
     free(path);
-    if (is_dynamic) free(conf_dir);
+    free(conf_dir);
     return ret;
 }
 /**
