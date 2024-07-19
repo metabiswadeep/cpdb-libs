@@ -260,8 +260,10 @@ char *cpdbGetSysConfDir()
         
     const char* static_path = "/etc/cpdb";
     if (access(static_path, R_OK) == 0 || mkdir(static_path, CPDB_SYSCONFDIR_PERM) == 0)
+    {
         config_dir = g_strdup(static_path);
         return config_dir;
+    }
 
     return NULL;
 }
