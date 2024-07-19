@@ -91,7 +91,7 @@ char *cpdbGetUserConfDir();
 /**
  * Get directory for system wide configuration files.
  */
-char *cpdbGetSysConfDir();
+char *cpdbGetSysConfDir(bool *is_dynamic);
 
 /**
  * Get absolute path from relative path.

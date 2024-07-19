@@ -229,13 +229,14 @@ char *cpdbGetUserConfDir()
     return NULL;
 }
 
-char *cpdbGetSysConfDir()
+char *cpdbGetSysConfDir(bool *is_dynamic)
 {
     char *config_dir = NULL, *env_xcd, *path;
 
 #ifdef CPDB_SYSCONFDIR
     config_dir = cpdbConcatPath(CPDB_SYSCONFDIR, "cpdb");
     if (access(config_dir, R_OK) == 0 || mkdir(config_dir, CPDB_SYSCONFDIR_PERM) == 0)
+        *is_dynamic = true;
         return config_dir;
 #endif
 
@@ -249,6 +250,7 @@ char *cpdbGetSysConfDir()
             if (access(config_dir, R_OK) == 0 || mkdir(config_dir, CPDB_SYSCONFDIR_PERM) == 0)
             {
                 free(env_xcd);
+                *is_dynamic = true;
                 return config_dir;
             }
 
@@ -260,8 +262,10 @@ char *cpdbGetSysConfDir()
         
     config_dir = "/etc/cpdb";
     if (access(config_dir, R_OK) == 0 || mkdir(config_dir, CPDB_SYSCONFDIR_PERM) == 0)
+        *is_dynamic = false;
         return config_dir;
 
+    *is_dynamic = false;
     return NULL;
 }
 
