@@ -15,7 +15,6 @@ extern "C" {
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <pwd.h>
-#include <stdbool.h>
 
 #include <cpdb/backend-interface.h>
 
