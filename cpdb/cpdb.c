@@ -258,9 +258,12 @@ char *cpdbGetSysConfDir()
         free(env_xcd);
     }
         
-    config_dir = "/etc/cpdb";
-    if (access(config_dir, R_OK) == 0 || mkdir(config_dir, CPDB_SYSCONFDIR_PERM) == 0)
+    const char* static_path = "/etc/cpdb";
+    if (access(static_path, R_OK) == 0 || mkdir(static_path, CPDB_SYSCONFDIR_PERM) == 0)
+    {
+        config_dir = g_strdup(static_path);
         return config_dir;
+    }
 
     return NULL;
 }
