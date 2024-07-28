@@ -254,7 +254,8 @@ static void fetchPrinterListFromBackend(cpdb_frontend_obj_t *f, const char *back
 {
     int num_printers;
     GVariantIter iter;
-    GVariant *printers = NULL, *printer = NULL;
+    GVariant *printers = NULL;
+    GVariant *printer;
     PrintBackend *proxy;
     GError *error = NULL;
     cpdb_printer_obj_t *p;
@@ -269,18 +270,21 @@ static void fetchPrinterListFromBackend(cpdb_frontend_obj_t *f, const char *back
     if (error)
     {
         logerror("Error getting %s printer list : %s\n", backend, error->message);
-        g_error_free(error);
+        g_error_free(error); // Free the GError object
         return;
     }
-    logdebug("Fetched %d printers from backend %s\n", num_printers, backend);
 
+    logdebug("Fetched %d printers from backend %s\n", num_printers, backend);
     g_variant_iter_init(&iter, printers);
-    while (g_variant_iter_loop(&iter, "(v)", &printer))
+
+    while (g_variant_iter_next(&iter, "(v)", &printer))
     {
         p = cpdbGetNewPrinterObj();
         cpdbFillBasicOptions(p, printer);
         if (f->last_saved_settings != NULL)
+        {
             cpdbCopySettings(f->last_saved_settings, p->settings);
+        }
         cpdbAddPrinter(f, p);
         g_variant_unref(printer);
     }
