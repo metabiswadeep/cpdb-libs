@@ -154,25 +154,33 @@ void cpdbOnPrinterStateChanged(GDBusConnection *connection,
 
 GDBusConnection *cpdbGetDbusConnection()
 {
-    gchar *bus_addr;
+    gchar *bus_addr = NULL;
     GError *error = NULL;
-    GDBusConnection *connection;
-    
-    bus_addr = g_dbus_address_get_for_bus_sync(G_BUS_TYPE_SESSION,
-                                               NULL,
-                                               &error);
-    
+    GDBusConnection *connection = NULL;
+
+    bus_addr = g_dbus_address_get_for_bus_sync(G_BUS_TYPE_SESSION, NULL, &error);
+    if (error)
+    {
+        logerror("Error getting bus address : %s\n", error->message);
+        g_error_free(error);
+        return NULL;
+    }
+
     connection = g_dbus_connection_new_for_address_sync(bus_addr,
                                                         G_DBUS_CONNECTION_FLAGS_AUTHENTICATION_CLIENT |
                                                         G_DBUS_CONNECTION_FLAGS_MESSAGE_BUS_CONNECTION,
                                                         NULL,
                                                         NULL,
                                                         &error);
+    g_free(bus_addr);
+
     if (error)
     {
         logerror("Error acquiring bus connection : %s\n", error->message);
+        g_error_free(error);
         return NULL;
     }
+
     logdebug("Acquired bus connection\n");
     return connection;
 }
@@ -180,7 +188,6 @@ GDBusConnection *cpdbGetDbusConnection()
 void cpdbConnectToDBus(cpdb_frontend_obj_t *f)
 {
     GMainContext *context;
-    GError *error = NULL;
 
     if ((f->connection = cpdbGetDbusConnection()) == NULL)
     {
@@ -221,6 +228,15 @@ void cpdbConnectToDBus(cpdb_frontend_obj_t *f)
                                        NULL);
 
 
+
+    if (error)
+    {
+        logerror("Error exporting frontend interface : %s\n", error->message);
+        return;
+    }
+    
+    
+
     if (error)
     {
         logerror("Error exporting frontend interface : %s\n", error->message);
@@ -254,7 +270,7 @@ static void fetchPrinterListFromBackend(cpdb_frontend_obj_t *f, const char *back
 {
     int num_printers;
     GVariantIter iter;
-    GVariant *printers, *printer;
+    GVariant *printers = NULL, *printer = NULL;
     PrintBackend *proxy;
     GError *error = NULL;
     cpdb_printer_obj_t *p;
@@ -269,9 +285,11 @@ static void fetchPrinterListFromBackend(cpdb_frontend_obj_t *f, const char *back
     if (error)
     {
         logerror("Error getting %s printer list : %s\n", backend, error->message);
+        g_error_free(error);
         return;
     }
     logdebug("Fetched %d printers from backend %s\n", num_printers, backend);
+
     g_variant_iter_init(&iter, printers);
     while (g_variant_iter_loop(&iter, "(v)", &printer))
     {
@@ -280,18 +298,20 @@ static void fetchPrinterListFromBackend(cpdb_frontend_obj_t *f, const char *back
         if (f->last_saved_settings != NULL)
             cpdbCopySettings(f->last_saved_settings, p->settings);
         cpdbAddPrinter(f, p);
+        g_variant_unref(printer);
     }
+    g_variant_unref(printers);
 }
 
 bool cpdbRefreshPrinterList(cpdb_frontend_obj_t *f, const char *backend)
 { 
     int num_printers; 
     GVariantIter iter; 
-    GVariant *printers, *printer;
+    GVariant *printers = NULL, *printer = NULL;
     PrintBackend *proxy; 
     GError *error = NULL; 
-    cpdb_printer_obj_t *p; 
- 
+    cpdb_printer_obj_t *p = NULL; 
+
     if ((proxy = g_hash_table_lookup(f->backend, backend)) == NULL) 
     { 
         logerror("Couldn't get %s proxy object\n", backend); 
@@ -302,6 +322,7 @@ bool cpdbRefreshPrinterList(cpdb_frontend_obj_t *f, const char *backend)
     if (error) 
     { 
         logerror("Error getting %s printer list : %s\n", backend, error->message); 
+        g_error_free(error); 
         return false; 
     } 
     logdebug("Fetched %d printers from backend %s\n", num_printers, backend); 
@@ -314,16 +335,16 @@ bool cpdbRefreshPrinterList(cpdb_frontend_obj_t *f, const char *backend)
             cpdbCopySettings(f->last_saved_settings, p->settings); 
         cpdbAddPrinter(f, p); 
     } 
- 
+
     GHashTableIter iterator; 
     gpointer key, value; 
- 
+
     g_hash_table_iter_init(&iterator, f->printer); 
- 
+
     while (g_hash_table_iter_next(&iterator, &key, &value)) { 
         cpdb_printer_obj_t* printer_obj = (cpdb_printer_obj_t*)value; 
         char* backend_name = printer_obj->backend_name; 
- 
+
         // Compare the backend_name with the provided one 
         if (strcmp(backend_name, backend) == 0) { 
             // Check if backend_name is not in the printers hashtable 
@@ -336,13 +357,17 @@ bool cpdbRefreshPrinterList(cpdb_frontend_obj_t *f, const char *backend)
                 cpdbFillBasicOptions(temp, printer);
                 if (strcmp(temp->name, printer_obj->name) == 0){
                     printer_exists = 1;
+                    cpdbDeletePrinterObj(temp);  // Free temp printer object
                     break;
                 }
-                cpdbDeletePrinterObj(temp);
+                cpdbDeletePrinterObj(temp);  // Free temp printer object
             }
+            free(printer_name); // Free the concatenated printer name
             if(printer_exists == 0) cpdbRemovePrinter(f, printer_obj->id, backend_name);
         }
     }
+
+    g_variant_unref(printers);  // Free the GVariant holding the printers
     return true;
 }
 
@@ -416,7 +441,7 @@ void cpdbActivateBackends(cpdb_frontend_obj_t *f) {
                             i ? "Starting now" : "Already running");
                     backend_proxy = cpdbCreateBackend(f->connection, service_name);
                     if (backend_proxy) {
-                        g_hash_table_insert(f->backend, strdup(backend_suffix), backend_proxy);
+                        g_hash_table_insert(f->backend, g_strdup(backend_suffix), backend_proxy);
                         f->num_backends++;
                         if (!g_hash_table_contains(existing_backends, backend_suffix)) {
                             fetchPrinterListFromBackend(f, backend_suffix);
@@ -426,6 +451,7 @@ void cpdbActivateBackends(cpdb_frontend_obj_t *f) {
                 g_hash_table_remove(existing_backends, backend_suffix);
                 g_free(backend_suffix);
             }
+            g_free(service_name);
         }
 
         g_variant_unref(service_names);
@@ -437,6 +463,7 @@ void cpdbActivateBackends(cpdb_frontend_obj_t *f) {
     while (g_hash_table_iter_next(&hash_iter, &key, &value)) {
         loginfo("Removing backend %s\n", (char *)key);
         g_hash_table_remove(f->backend, key);
+        g_free(key);
     }
 
     g_hash_table_destroy(existing_backends);
@@ -486,14 +513,11 @@ void cpdbStopListingPrinters(cpdb_frontend_obj_t *f){
 PrintBackend *cpdbCreateBackend(GDBusConnection *connection,
                                 const char *service_name)
 {
-    FILE *file = NULL;
     PrintBackend *proxy;
     GError *error = NULL;
-    char *path, *backend_name;
-    const char *info_dir_name;
-    char obj_path[CPDB_BSIZE];
-    
-    backend_name = g_strdup(service_name);
+    char *backend_name;
+
+    backend_name = g_strdup(service_name); // Allocate memory for backend_name
     proxy = print_backend_proxy_new_sync(connection,
                                          0,
                                          backend_name,
@@ -504,8 +528,12 @@ PrintBackend *cpdbCreateBackend(GDBusConnection *connection,
     {
         logerror("Error creating backend proxy for %s : %s\n",
                     backend_name, error->message);
+        g_error_free(error);
+        g_free(backend_name);
         return NULL;
     }
+
+    g_free(backend_name);
     return proxy;
 }
 
@@ -689,11 +717,12 @@ cpdb_printer_obj_t *cpdbFindPrinterObj(cpdb_frontend_obj_t *f,
 cpdb_printer_obj_t *cpdbGetDefaultPrinterForBackend(cpdb_frontend_obj_t *f,
                                                     const char *backend_name)
 {
-    char *def, *service_name;
+    char *def = NULL;
+    char *service_name = NULL;
     GError *error = NULL;
-    PrintBackend *proxy;
+    PrintBackend *proxy = NULL;
     cpdb_printer_obj_t *p = NULL;
-    
+
     proxy = g_hash_table_lookup(f->backend, backend_name);
     if (proxy == NULL)
     {
@@ -712,12 +741,15 @@ cpdb_printer_obj_t *cpdbGetDefaultPrinterForBackend(cpdb_frontend_obj_t *f,
     if (error)
     {
         logerror("Error getting default printer for backend : %s\n", error->message);
+        g_error_free(error);
         return NULL;
     }
-    
+
     p = cpdbFindPrinterObj(f, def, backend_name);
     if (p)
         logdebug("Obtained default printer %s for backend %s\n", p->id, backend_name);
+
+    free(def);
     return p;
 }
 
@@ -750,9 +782,10 @@ cpdb_printer_obj_t *cpdbGetDefaultPrinter(cpdb_frontend_obj_t *f)
 {   
     gpointer key, value;
     GHashTableIter iter;
-    char *conf_dir, *path, *printer_id, *backend_name;
+    char *conf_dir = NULL, *path = NULL, *printer_id = NULL, *backend_name = NULL;
     cpdb_printer_obj_t *default_printer = NULL;
-    GList *printer, *user_printers, *system_printers, *printers = NULL;
+    GList *printer = NULL, *user_printers = NULL, *system_printers = NULL, *printers = NULL;
+    char *printer_data = NULL, *printer_data_dup = NULL; // To store duplicate data for strtok
 
     if (f->num_printers == 0 || f->num_backends == 0)
     {
@@ -781,15 +814,23 @@ cpdb_printer_obj_t *cpdbGetDefaultPrinter(cpdb_frontend_obj_t *f)
     
     for (printer = printers; printer != NULL; printer = printer->next)
     {
-        printer_id = strtok(printer->data, "#"); 
+        printer_data_dup = g_strdup(printer->data); // Duplicate data for strtok
+        printer_id = strtok(printer_data_dup, "#"); 
         backend_name = strtok(NULL, "\n");
 
-        default_printer = cpdbFindPrinterObj(f, printer_id, backend_name);
-        if (default_printer)
+        if (printer_id && backend_name)
         {
-            g_list_free_full(printers, free);
+            default_printer = cpdbFindPrinterObj(f, printer_id, backend_name);
+            if (default_printer)
+            {
+                g_list_free_full(printers, free);
+                g_free(printer_data_dup);
             goto found;
+            goto found;
+                goto found;
+            }
         }
+        g_free(printer_data_dup);
     }
     if (printers)
         g_list_free_full(printers, free);
@@ -810,22 +851,25 @@ cpdb_printer_obj_t *cpdbGetDefaultPrinter(cpdb_frontend_obj_t *f)
     
     /** Fallback to the default printer of first backend found **/
     g_hash_table_iter_init(&iter, f->backend);
-    g_hash_table_iter_next(&iter, &key, &value);
+    if (g_hash_table_iter_next(&iter, &key, &value))
+    {
+        backend_name = (char *) key;
+        default_printer = cpdbGetDefaultPrinterForBackend(f, backend_name);
+        if (default_printer)
+            goto found;
+        logdebug("Couldn't find a valid default %s printer\n", backend_name);
+    }
 
-    backend_name = (char *) key;
-    default_printer = cpdbGetDefaultPrinterForBackend(f, backend_name);
-    if (default_printer)
-        goto found;
-    logdebug("Couldn't find a valid default %s printer\n", backend_name);
-    
     /** Fallback to first printer found **/
     g_hash_table_iter_init(&iter, f->printer);
-    g_hash_table_iter_next(&iter, &key, &value);
-    default_printer = (cpdb_printer_obj_t *) value;
-    if (!default_printer)
+    if (g_hash_table_iter_next(&iter, &key, &value))
     {
-        logerror("Couldn't find a valid printer\n");
-        return NULL;
+        default_printer = (cpdb_printer_obj_t *) value;
+        if (!default_printer)
+        {
+            logerror("Couldn't find a valid printer\n");
+            return NULL;
+        }
     }
 
 found:
@@ -833,6 +877,7 @@ found:
                 default_printer->id, default_printer->backend_name);
     return default_printer;
 }
+
 
 int cpdbSetDefaultPrinter(const char *path,
                           cpdb_printer_obj_t *p)
@@ -1039,8 +1084,10 @@ cpdb_options_t *cpdbGetAllOptions(cpdb_printer_obj_t *p)
         return p->options;
 
     GError *error = NULL;
-    int num_options, num_media;
-    GVariant *var, *media_var;
+    int num_options = 0, num_media = 0;
+    GVariant *var = NULL, *media_var = NULL;
+    cpdb_options_t *options = NULL;
+
     print_backend_call_get_all_options_sync(p->backend_proxy,
                                             p->id,
                                             &num_options,
@@ -1053,15 +1100,28 @@ cpdb_options_t *cpdbGetAllOptions(cpdb_printer_obj_t *p)
     {
         logerror("Error getting printer options for %s %s : %s\n",
                     p->id, p->backend_name, error->message);
+        g_error_free(error);
         return NULL;
     }
 
     loginfo("Obtained %d options and %d media for %s %s\n",
             num_options, num_media, p->id, p->backend_name);
     p->options = cpdbGetNewOptions();
+    if (p->options == NULL)
+    {
+        g_variant_unref(var);
+        g_variant_unref(media_var);
+        return NULL;
+    }
+
     cpdbUnpackOptions(num_options, var, num_media, media_var, p->options);
+
+    g_variant_unref(var);
+    g_variant_unref(media_var);
+
     return p->options;
 }
+
 
 cpdb_option_t *cpdbGetOption(cpdb_printer_obj_t *p,
                              const char *name)
@@ -1150,6 +1210,8 @@ char *cpdbPrintFileWithJobTitle(cpdb_printer_obj_t *p,
         close(fd);
         logerror("Error opening file %s on %s %s: %s\n",
                  file_path, p->id, p->backend_name, strerror(errno));
+        unlink(socket_path);
+        free(socket_path);
         return NULL;
     }
 
@@ -1163,6 +1225,7 @@ char *cpdbPrintFileWithJobTitle(cpdb_printer_obj_t *p,
             unlink(socket_path);
             logerror("Error sending file %s on %s %s: %s\n",
                      file_path, p->id, p->backend_name, strerror(errno));
+            free(socket_path);
             return NULL;
         }
     }
@@ -1170,6 +1233,7 @@ char *cpdbPrintFileWithJobTitle(cpdb_printer_obj_t *p,
     fclose(file);
     close(fd);
     unlink(socket_path);
+    free(socket_path);
 
     return jobid;
 }
@@ -1188,6 +1252,7 @@ int cpdbPrintFD(cpdb_printer_obj_t *p,
     if (fd == -1) {
         logerror("Error creating fd for job %s on %s %s with socket %s: %s\n",
                  *jobid, p->id, p->backend_name, *socket_path, strerror(errno));
+        free(*socket_path);
         return -1;
     }
 
@@ -1200,7 +1265,8 @@ int cpdbPrintFD(cpdb_printer_obj_t *p,
     if (res == -1) {
         logerror("Error connecting to socket for %s on %s %s, socket %s: %s\n",
                  *jobid, p->id, p->backend_name, *socket_path, strerror(errno));
-        close(fd);  // Close the socket in case of an error
+        close(fd); 
+        free(*socket_path);
         return -1;
     }
 
@@ -1209,37 +1275,44 @@ int cpdbPrintFD(cpdb_printer_obj_t *p,
 
 char *cpdbPrintSocket(cpdb_printer_obj_t *p, char **jobid, const char *title)
 {
-    char *socket;
-    GError *error = NULL;   
+    char *socket = NULL;
+    GError *error = NULL;
+    GVariant *settings_variant = cpdbSerializeToGVariant(p->settings);
+
     cpdbDebugPrintSettings(p->settings);
     print_backend_call_print_socket_sync(p->backend_proxy,
-                                       p->id,
-                                       p->settings->count,
-                                       cpdbSerializeToGVariant(p->settings),
-                                       title,
-                                       jobid,
-                                       &socket,
-                                       NULL,
-                                       &error);
-                                       
+                                         p->id,
+                                         p->settings->count,
+                                         settings_variant,
+                                         title,
+                                         jobid,
+                                         &socket,
+                                         NULL,
+                                         &error);
+
+    g_variant_unref(settings_variant);
+
     if (error) {
         logerror("Error opening socket on %s %s : %s\n", 
-                    p->id, p->backend_name, error->message);
+                 p->id, p->backend_name, error->message);
+        g_error_free(error);
         return NULL;
     }
-    
+
     if (*jobid == NULL || **jobid == '\0') {
         logerror("Error while trying to create a job on %s %s: Couldn't create a job\n", 
-                    p->id, p->backend_name);
+                 p->id, p->backend_name);
+        g_free(socket);
         return NULL;
     }
 
     if (socket == NULL || *socket == '\0') {
         logerror("Error opening socket on %s %s: Couldn't create a socket\n", 
-                    p->id, p->backend_name);
+                 p->id, p->backend_name);
+        g_free(socket);
         return NULL;
     }
-    
+
     loginfo("Socket opened for printing job %s on %s %s successfully: %s\n",
             *jobid, p->id, p->backend_name, socket);
     cpdbSaveSettingsToDisk(p->settings);
@@ -1447,12 +1520,13 @@ char *cpdbGetOptionTranslation(cpdb_printer_obj_t *p,
                                const char *option_name,
                                const char *locale)
 {
-    char *name_key, *translation;
+    char *name_key = NULL;
+    char *translation = NULL;
     GError *error = NULL;
 
     if (p == NULL || option_name == NULL || locale == NULL)
     {
-        logwarn("Invalid paramaters: cpdbGetOptionTranslation()\n");
+        logwarn("Invalid parameters: cpdbGetOptionTranslation()\n");
         return NULL;
     }
 
@@ -1481,6 +1555,7 @@ char *cpdbGetOptionTranslation(cpdb_printer_obj_t *p,
         logerror("Error getting translation for option=%s;locale=%s;printer=%s#%s; : %s\n",
                     option_name, locale,
                     p->id, p->backend_name, error->message);
+        g_error_free(error);
         return NULL;
     }
     
@@ -1494,12 +1569,14 @@ char *cpdbGetChoiceTranslation(cpdb_printer_obj_t *p,
                                const char *choice_name,
                                const char *locale)
 {
-    char *name_key, *choice_key, *translation;
+    char *name_key = NULL;
+    char *choice_key = NULL;
+    char *translation = NULL;
     GError *error = NULL;
 
     if (p == NULL || option_name == NULL || choice_name == NULL || locale == NULL)
     {
-        logwarn("Invalid paramaters: cpdbGetChoiceTranslation()\n");
+        logwarn("Invalid parameters: cpdbGetChoiceTranslation()\n");
         return NULL;
     }
 
@@ -1532,6 +1609,7 @@ char *cpdbGetChoiceTranslation(cpdb_printer_obj_t *p,
         logerror("Error getting translation for option=%s;choice=%s;locale=%s;printer=%s#%s; : %s\n",
                     option_name, choice_name, locale,
                     p->id, p->backend_name, error->message);
+        g_error_free(error);
         return NULL;
     }
     
@@ -1546,12 +1624,13 @@ char *cpdbGetGroupTranslation(cpdb_printer_obj_t *p,
                               const char *group_name,
                               const char *locale)
 {
-    char *group_key, *translation;
+    char *group_key = NULL;
+    char *translation = NULL;
     GError *error = NULL;
 
     if (p == NULL || group_name == NULL || locale == NULL)
     {
-        logwarn("Invalid paramaters: cpdbGetGroupTranslation()\n");
+        logwarn("Invalid parameters: cpdbGetGroupTranslation()\n");
         return NULL;
     }
 
@@ -1581,6 +1660,7 @@ char *cpdbGetGroupTranslation(cpdb_printer_obj_t *p,
         logerror("Error getting translation for group=%s;locale=%s;printer=%s#%s; : %s\n",
                     group_name, locale,
                     p->id, p->backend_name, error->message);
+        g_error_free(error);
         return NULL;
     }
     
@@ -1592,7 +1672,7 @@ char *cpdbGetGroupTranslation(cpdb_printer_obj_t *p,
 void cpdbGetAllTranslations(cpdb_printer_obj_t *p,
                             const char *locale)
 {
-    GVariant *translations;
+    GVariant *translations = NULL;
     GError *error = NULL;
 
     if (p == NULL || locale == NULL)
@@ -1614,6 +1694,7 @@ void cpdbGetAllTranslations(cpdb_printer_obj_t *p,
     {
         logerror("Error getting printer translations in %s for %s %s : %s\n",
                     locale, p->id, p->backend_name, error->message);
+        g_error_free(error);
         return;
     }
     logdebug("Fetched translations for printer %s %s\n", p->id, p->backend_name);
@@ -1621,6 +1702,9 @@ void cpdbGetAllTranslations(cpdb_printer_obj_t *p,
     cpdbDeleteTranslations(p);
     p->locale = g_strdup(locale);
     p->translations = cpdbUnpackTranslations(translations);
+    if (translations != NULL) {
+        g_variant_unref(translations);
+    }
 }
 
 cpdb_media_t *cpdbGetMedia(cpdb_printer_obj_t *p,
@@ -1894,7 +1978,8 @@ GVariant *cpdbSerializeToGVariant(cpdb_settings_t *s)
     if (s->count == 0)
         g_variant_builder_add(builder, "(ss)", "NA", "NA");
 
-    variant = g_variant_new("a(ss)", builder);
+    variant = g_variant_builder_end(builder);
+    g_variant_builder_unref(builder);
     return variant;
 }
 
@@ -2117,8 +2202,8 @@ void cpdbUnpackOptions(int num_options,
     cpdb_media_t *media;
     char buf[CPDB_BSIZE];
     int i, j, num, width, length, l, r, t, b;
-    GVariantIter *iter, *sub_iter;
-    char *str, *name, *def, *group;
+    GVariantIter *iter = NULL, *sub_iter = NULL;
+    char *str = NULL, *name = NULL, *def = NULL, *group = NULL;
     
     options->count = num_options;
     g_variant_get(opts_var, "a(sssia(s))", &iter);
@@ -2145,9 +2230,12 @@ void cpdbUnpackOptions(int num_options,
             opt->supported_values[j] = g_strdup(str);
         }
         g_hash_table_insert(options->table, g_strdup(opt->option_name), opt);
+        g_variant_iter_free(sub_iter);
     }
-    
+    g_variant_iter_free(iter);
+
     options->media_count = num_media;
+    iter = NULL;
     g_variant_get(media_var, "a(siiia(iiii))", &iter);
     for (i = 0; i < num_media; i++)
     {
@@ -2168,14 +2256,15 @@ void cpdbUnpackOptions(int num_options,
 		{
 			g_variant_iter_loop(sub_iter, "(iiii)", &l, &r, &t, &b);
             logdebug("    %d,%d,%d,%d;\n", l, r, t, b);
-			media->margins[j].left = l;
+            media->margins[j].left = l;
             media->margins[j].right = r;
             media->margins[j].top = t; 
             media->margins[j].bottom = b;
-		}
-		g_hash_table_insert(options->media, g_strdup(media->name), media);
-	}
-    
+        }
+        g_hash_table_insert(options->media, g_strdup(media->name), media);
+        g_variant_iter_free(sub_iter);
+    }
+    g_variant_iter_free(iter);
 }
 
 static GHashTable *cpdbUnpackTranslations (GVariant *variant)

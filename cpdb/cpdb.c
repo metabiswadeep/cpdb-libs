@@ -244,7 +244,7 @@ char *cpdbGetSysConfDir()
     g_free(config_dir);
 #endif
 
-    if (env_xcd = getenv("XDG_CONFIG_DIRS"))
+    if ((env_xcd = getenv("XDG_CONFIG_DIRS")) != NULL)
     {
         env_xcd = g_strdup(env_xcd);
         path = strtok(env_xcd, ":");
@@ -253,14 +253,14 @@ char *cpdbGetSysConfDir()
             config_dir = cpdbConcatPath(path, "cpdb");
             if (access(config_dir, R_OK) == 0 || mkdir(config_dir, CPDB_SYSCONFDIR_PERM) == 0)
             {
-                free(env_xcd);
+                g_free(env_xcd);
                 return config_dir;
             }
 
-            free(config_dir);
+            g_free(config_dir);
             path = strtok(NULL, ":");
         }
-        free(env_xcd);
+        g_free(env_xcd);
     }
         
     const char* static_path = "/etc/cpdb";
