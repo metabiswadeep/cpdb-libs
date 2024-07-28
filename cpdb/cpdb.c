@@ -49,6 +49,10 @@ const char *cpdbGroupTable[][2] = {
 
 static void cpdbDebugLog(CpdbDebugLevel msg_lvl, const char *msg);
 
+const char *cpdbGetVersion()
+{
+    return PACKAGE_VERSION;
+}
 
 void cpdbInit()
 {
@@ -237,6 +241,7 @@ char *cpdbGetSysConfDir()
     config_dir = cpdbConcatPath(CPDB_SYSCONFDIR, "cpdb");
     if (access(config_dir, R_OK) == 0 || mkdir(config_dir, CPDB_SYSCONFDIR_PERM) == 0)
         return config_dir;
+    g_free(config_dir);
 #endif
 
     if (env_xcd = getenv("XDG_CONFIG_DIRS"))
@@ -245,7 +250,7 @@ char *cpdbGetSysConfDir()
         path = strtok(env_xcd, ":");
         while (path != NULL)
         {
-            config_dir = cpdbConcatPath(CPDB_SYSCONFDIR, "cpdb");
+            config_dir = cpdbConcatPath(path, "cpdb");
             if (access(config_dir, R_OK) == 0 || mkdir(config_dir, CPDB_SYSCONFDIR_PERM) == 0)
             {
                 free(env_xcd);
