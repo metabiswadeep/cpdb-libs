@@ -227,22 +227,6 @@ void cpdbConnectToDBus(cpdb_frontend_obj_t *f)
                                        f,                                //user_data
                                        NULL);
 
-
-
-    if (error)
-    {
-        logerror("Error exporting frontend interface : %s\n", error->message);
-        return;
-    }
-    
-    
-
-    if (error)
-    {
-        logerror("Error exporting frontend interface : %s\n", error->message);
-        return;
-    }
-    
     cpdbActivateBackends(f); 
     
 }
