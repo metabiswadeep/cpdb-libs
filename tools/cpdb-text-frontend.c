@@ -18,7 +18,6 @@ gpointer control_thread(gpointer user_data);
 gpointer background_thread(gpointer user_data);
 
 cpdb_frontend_obj_t *f;
-static const char *locale;
 
 static void printMedia(const cpdb_media_t *media)
 {
@@ -108,13 +107,6 @@ int main(int argc, char **argv)
     setlocale (LC_ALL, "");
     cpdbInit();
 
-    locale = getenv("LANGUAGE");
-
-    pid_t pid_temp = getpid();
-    char pid[20];
-    snprintf(pid, sizeof(pid), "%d", (int)pid_temp);
-
-    char *dialog_bus_name = malloc(300);
     f = cpdbGetNewFrontendObj(printer_cb);
 
     /** Uncomment the line below if you don't want to use the previously saved settings**/
@@ -125,7 +117,6 @@ int main(int argc, char **argv)
     g_thread_join(thread);
     cpdbStopBackendListRefreshing(f);
     cpdbDeleteFrontendObj(f);
-    free(dialog_bus_name);
 
     return 0;
 }
@@ -134,6 +125,8 @@ gpointer control_thread(gpointer user_data)
 {
     fflush(stdout);
     char buf[BUFSIZE];
+
+    const char *locale = g_get_language_names()[0];
 
     cpdbConnectToDBus(f);
     displayAllPrinters(f);
@@ -153,6 +146,10 @@ gpointer control_thread(gpointer user_data)
             g_message("Restarting..\n");
             cpdbDisconnectFromDBus(f);
             cpdbConnectToDBus(f);
+        }
+        else if (strcmp(buf, "version") == 0)
+        {
+            printf("CPDB v%s\n", cpdbGetVersion());
         }
         else if (strcmp(buf, "get-all-printers") == 0)
         {
@@ -368,7 +365,10 @@ gpointer control_thread(gpointer user_data)
              * Eg. "CUPS" or "GCP"
              */
             cpdb_printer_obj_t *p = cpdbGetDefaultPrinterForBackend(f, backend_name);
-            printf("%s\n", p->name);
+            if (p)
+                printf("%s\n", p->name);
+            else
+                printf("No default printer for backend found\n");
         }
         else if (strcmp(buf, "set-user-default-printer") == 0)
         {
