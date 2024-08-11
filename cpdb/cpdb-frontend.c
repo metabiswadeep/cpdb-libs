@@ -2219,11 +2219,12 @@ void cpdbUnpackOptions(int num_options,
         }
         g_hash_table_insert(options->table, g_strdup(opt->option_name), opt);
         g_variant_iter_free(sub_iter);
+        sub_iter = NULL;
     }
     g_variant_iter_free(iter);
+    iter = NULL;
 
     options->media_count = num_media;
-    iter = NULL;
     g_variant_get(media_var, "a(siiia(iiii))", &iter);
     for (i = 0; i < num_media; i++)
     {
@@ -2251,9 +2252,11 @@ void cpdbUnpackOptions(int num_options,
         }
         g_hash_table_insert(options->media, g_strdup(media->name), media);
         g_variant_iter_free(sub_iter);
+        sub_iter = NULL;
     }
     g_variant_iter_free(iter);
 }
+
 
 static GHashTable *cpdbUnpackTranslations (GVariant *variant)
 {
