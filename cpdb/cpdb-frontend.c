@@ -124,9 +124,10 @@ void cpdbOnPrinterRemoved(GDBusConnection *connection,
     cpdb_frontend_obj_t *f = (cpdb_frontend_obj_t *)user_data;
     char *printer_id;
     char *backend_name;
-    
     g_variant_get(parameters, "(ss)", &printer_id, &backend_name);
     cpdb_printer_obj_t *p = cpdbRemovePrinter(f, printer_id, backend_name);
+    g_free(printer_id);
+    g_free(backend_name);
     f->printer_cb(f, p, CPDB_CHANGE_PRINTER_REMOVED);
 }
 
@@ -146,10 +147,16 @@ void cpdbOnPrinterStateChanged(GDBusConnection *connection,
                     &printer_is_accepting_jobs, &backend_name);
     cpdb_printer_obj_t *p = cpdbFindPrinterObj(f, printer_id, backend_name);
     if (p->state)
-        free(p->state);
+    { 
+        g_free(p->state);  // Free the existing state before replacing it
+    }
     p->state = g_strdup(printer_state);
     p->accepting_jobs = printer_is_accepting_jobs;
     f->printer_cb(f, p, CPDB_CHANGE_PRINTER_STATE_CHANGED);
+
+    g_free(printer_id);
+    g_free(printer_state);
+    g_free(backend_name);
 }
 
 GDBusConnection *cpdbGetDbusConnection()
@@ -322,6 +329,7 @@ bool cpdbRefreshPrinterList(cpdb_frontend_obj_t *f, const char *backend)
         if (f->last_saved_settings != NULL) 
             cpdbCopySettings(f->last_saved_settings, p->settings); 
         cpdbAddPrinter(f, p); 
+        g_variant_unref(printer); 
     } 
 
     GHashTableIter iterator; 
@@ -350,7 +358,7 @@ bool cpdbRefreshPrinterList(cpdb_frontend_obj_t *f, const char *backend)
                 }
                 cpdbDeletePrinterObj(temp);  // Free temp printer object
             }
-            free(printer_name); // Free the concatenated printer name
+            g_free(printer_name); // Free the concatenated printer name
             if(printer_exists == 0) cpdbRemovePrinter(f, printer_obj->id, backend_name);
         }
     }
@@ -604,6 +612,7 @@ void getAllPrintersLookup(gpointer key, gpointer value, gpointer user_data){
     if (error)
     {
         logerror("Error getting printer list : %s\n", error->message);
+        g_error_free(error);
         return;
     }
     g_variant_iter_init(&iter, printers);
@@ -612,7 +621,12 @@ void getAllPrintersLookup(gpointer key, gpointer value, gpointer user_data){
         p = cpdbGetNewPrinterObj();
         cpdbFillBasicOptions(p, printer);
         cpdbPrintBasicOptions(p);
+        cpdbDeletePrinterObj(p); 
+        g_variant_unref(printer);
     }
+
+    g_variant_iter_free(&iter);
+    g_variant_unref(printers);
 }
 
 void cpdbGetAllPrinters(cpdb_frontend_obj_t *f)
@@ -1745,15 +1759,15 @@ void acquire_details_cb(PrintBackend *proxy,
                         gpointer user_data)
 {
     cpdb_async_details_obj_t *a = user_data;
-    
+ 
     cpdb_printer_obj_t *p = a->p;
     cpdb_async_callback caller_cb = a->caller_cb;
-    
+
     p->options = cpdbGetNewOptions();
     GError *error = NULL;
     int num_options, num_media;
     GVariant *var, *media_var;
-    
+
     print_backend_call_get_all_options_finish (proxy,
                                                &num_options,
                                                &var,
@@ -1767,6 +1781,8 @@ void acquire_details_cb(PrintBackend *proxy,
                     p->id, p->backend_name, error->message);
         if (caller_cb)
             caller_cb(p, FALSE, a->user_data);
+        g_variant_unref(var); // Free the variant in case of error
+        g_variant_unref(media_var);
     }
     else
     {
@@ -1775,8 +1791,10 @@ void acquire_details_cb(PrintBackend *proxy,
         cpdbUnpackOptions(num_options, var, num_media, media_var, p->options);
         if (caller_cb)
             caller_cb(p, TRUE, a->user_data);
+        g_variant_unref(var);
+        g_variant_unref(media_var);
     }
-    
+
     free(a);
 }
 
@@ -1830,12 +1848,13 @@ static void acquire_translations_cb(PrintBackend *proxy,
     cpdb_printer_obj_t *p = a->p;
 
     print_backend_call_get_all_translations_finish(proxy, &translations,
-                                                    res, &error);
+        res, &error);
     if (error)
     {
         logerror("Error getting printer translations for %s %s : %s\n",
                     p->id, p->backend_name, error->message);
         a->caller_cb(p, FALSE, a->user_data);
+        g_error_free(error);
     }
     else
     {
@@ -1843,6 +1862,7 @@ static void acquire_translations_cb(PrintBackend *proxy,
         p->locale = g_strdup(a->locale);
         p->translations = cpdbUnpackTranslations(translations);
         a->caller_cb(p, TRUE, a->user_data);
+        g_variant_unref(translations); // Free the variant
     }
 
     free(a->locale);
@@ -2175,6 +2195,8 @@ void cpdbUnpackJobArray(GVariant *var,
         logdebug("size=%d;\n", size);
         jobs[i].size = size;
     }
+
+    g_variant_iter_free(iter); // Free the iterator
 }
 /**
  * ________________________________utility functions__________________________
@@ -2192,7 +2214,7 @@ void cpdbUnpackOptions(int num_options,
     int i, j, num, width, length, l, r, t, b;
     GVariantIter *iter = NULL, *sub_iter = NULL;
     char *str = NULL, *name = NULL, *def = NULL, *group = NULL;
-    
+  
     options->count = num_options;
     g_variant_get(opts_var, "a(sssia(s))", &iter);
     i = 0;
@@ -2237,9 +2259,14 @@ void cpdbUnpackOptions(int num_options,
         }
         g_hash_table_insert(options->table, g_strdup(opt->option_name), opt);
         i++;
+
+        g_free(name);
+        g_free(group);
+        g_free(def);
+        g_variant_iter_free(sub_iter);
     }
     g_variant_iter_free(iter);
-    
+
     options->media_count = num_media;
     g_variant_get(media_var, "a(siiia(iiii))", &iter);
     i = 0;
@@ -2283,6 +2310,9 @@ void cpdbUnpackOptions(int num_options,
         }
         g_hash_table_insert(options->media, g_strdup(media->name), media);
         i++;
+
+        g_free(name);
+        g_variant_iter_free(sub_iter);
     }
     g_variant_iter_free(iter);
 }
@@ -2302,6 +2332,8 @@ static GHashTable *cpdbUnpackTranslations (GVariant *variant)
         g_hash_table_insert(translations,
                             g_strdup(key), g_strdup(value));
     }
+
+    g_variant_unref(variant); // Free the variant after use
 
     return translations;
 }
