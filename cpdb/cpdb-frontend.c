@@ -1696,6 +1696,86 @@ void cpdbGetAllTranslations(cpdb_printer_obj_t *p,
     }
 }
 
+//To be used with cpdbGetAllTranslations only
+char *cpdbGetChoiceTranslationFromTable(cpdb_printer_obj_t *p,
+                               const char *option_name,
+                               const char *choice_name,
+                               const char *locale)
+{
+    char *name_key = NULL;
+    char *choice_key = NULL;
+    char *translation = NULL;
+
+    if (p == NULL || option_name == NULL || choice_name == NULL || locale == NULL)
+    {
+        logwarn("Invalid parameters: cpdbGetChoiceTranslationFromTable()\n");
+        return NULL;
+    }
+
+    if (p->locale != NULL && strcmp(p->locale, locale) == 0)
+    {
+        name_key = cpdbConcatSep(CPDB_OPT_PREFIX, option_name);
+        choice_key = cpdbConcatSep(name_key, choice_name);
+        translation = g_hash_table_lookup(p->translations, choice_key);
+        free(name_key);
+        free(choice_key);
+        if (translation)
+        {
+            logdebug("Found translation=%s; for option=%s;choice=%s;locale=%s;printer=%s#%s;\n",
+                        translation, option_name, choice_name, locale, 
+                        p->id, p->backend_name);
+            return g_strdup(translation);
+        }
+        else
+        {
+            return choice_name;
+        }
+    }
+    else
+    {
+        logwarn("Locale does not exist in table, use cpdbGetChoiceTranslation instead\n");
+        return NULL;
+    }
+}
+
+//To be used with cpdbGetAllTranslations only
+char *cpdbGetOptionTranslationFromTable(cpdb_printer_obj_t *p,
+                               const char *option_name,
+                               const char *locale)
+{
+    char *name_key = NULL;
+    char *translation = NULL;
+    GError *error = NULL;
+
+    if (p == NULL || option_name == NULL || locale == NULL)
+    {
+        logwarn("Invalid parameters: cpdbGetOptionTranslationFromTable()\n");
+        return NULL;
+    }
+
+    if (p->locale != NULL && strcmp(p->locale, locale) == 0)
+    {
+        name_key = cpdbConcatSep(CPDB_OPT_PREFIX, option_name);
+        translation = g_hash_table_lookup(p->translations, name_key);
+        free(name_key);
+        if (translation)
+        {
+            logdebug("Found translation=%s; for option=%s;locale=%s;printer=%s#%s;\n",
+                        translation, option_name, locale, p->id, p->backend_name);
+            return g_strdup(translation);
+        }
+        else
+        {
+            return option_name;
+        }
+    }
+    else
+    {
+        logwarn("Locale does not exist in table, use cpdbGetOptionTranslation instead\n");
+        return NULL;
+    }
+}
+
 cpdb_media_t *cpdbGetMedia(cpdb_printer_obj_t *p,
                            const char *media)
 {
