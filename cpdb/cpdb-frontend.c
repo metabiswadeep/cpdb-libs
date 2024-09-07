@@ -715,7 +715,7 @@ cpdb_printer_obj_t *cpdbGetDefaultPrinterForBackend(cpdb_frontend_obj_t *f,
     if (proxy == NULL)
     {
         logwarn("Couldn't find backend proxy for %s\n", backend_name);
-        service_name = cpdbConcat(CPDB_BACKEND_PREFIX, backend_name);
+        service_name = g_strconcat(CPDB_BACKEND_PREFIX, backend_name, NULL);
         proxy = cpdbCreateBackend(f->connection, service_name);
         free(service_name);
         if (proxy == NULL)
@@ -734,6 +734,7 @@ cpdb_printer_obj_t *cpdbGetDefaultPrinterForBackend(cpdb_frontend_obj_t *f,
     }
 
     p = cpdbFindPrinterObj(f, def, backend_name);
+    g_free(def);
     if (p)
         logdebug("Obtained default printer %s for backend %s\n", p->id, backend_name);
 
@@ -1422,7 +1423,7 @@ cpdb_printer_obj_t *cpdbResurrectPrinterFromFile(const char *filename)
         goto parse_error;
     p->backend_name = g_strdup(strtok(buf, "#"));
     
-    service_name = cpdbConcat(CPDB_BACKEND_PREFIX, p->backend_name);
+    service_name = g_strconcat(CPDB_BACKEND_PREFIX, p->backend_name, NULL);
     if ((connection = cpdbGetDbusConnection()) == NULL)
     {
         logerror("Error resurrecting printer : Couldn't get dbus connection\n");

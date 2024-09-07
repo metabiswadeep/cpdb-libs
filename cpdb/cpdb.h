@@ -74,11 +74,6 @@ char **cpdbNewCStringArray(int num_elems);
 gboolean cpdbGetBoolean(const char *);
 
 /**
- * Concatenate two strings.
- */
-char *cpdbConcat(const char *s1, const char *s2);
-
-/**
  * Concatenate two strings with separator "#".
  */
 char *cpdbConcatSep(const char *s1, const char *s2);
@@ -102,11 +97,6 @@ char *cpdbGetSysConfDir();
  * Get absolute path from relative path.
  */
 char *cpdbGetAbsolutePath(const char *file_path);
-
-/**
- * Extract file name for path.
- */
-char *cpdbExtractFileName(const char* file_path);
 
 /**
  * Get a group for given option name.

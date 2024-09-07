@@ -79,18 +79,6 @@ gboolean cpdbGetBoolean(const char *g)
     return FALSE;
 }
 
-char *cpdbConcat(const char *s1, const char *s2)
-{
-    if (s1 == NULL)
-        return g_strdup(s2);
-    if (s2 == NULL)
-        return g_strdup(s1);
-
-    char *s = malloc(strlen(s1) + strlen(s2) + 1);
-    sprintf(s, "%s%s", s1, s2);
-    return s;
-}
-
 char *cpdbConcatSep(const char *s1, const char *s2)
 {
     char *s = malloc(strlen(s1) + strlen(s2) + 2);
@@ -197,25 +185,6 @@ char *cpdbGetAbsolutePath(const char *file_path)
     free(cwd);
     printf("%s\n", fp);
     return fp;
-}
-char *cpdbExtractFileName(const char *file_path)
-{
-    if (!file_path)
-        return NULL;
-
-    char *file_name_ptr = (char *)file_path;
-
-    char *x = (char *)file_path;
-    char c = *x;
-    while (c)
-    {
-        if (c == '/')
-            file_name_ptr = x;
-
-        x++;
-        c = *x;
-    }
-    return file_name_ptr;
 }
 
 char *cpdbGetUserConfDir()
