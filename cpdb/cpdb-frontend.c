@@ -1657,7 +1657,7 @@ char *cpdbGetChoiceTranslationFromTable(cpdb_printer_obj_t *p,
         }
         else
         {
-            return choice_name;
+            return g_strdup(choice_name);
         }
     }
     else
@@ -1694,7 +1694,7 @@ char *cpdbGetOptionTranslationFromTable(cpdb_printer_obj_t *p,
         }
         else
         {
-            return option_name;
+            return g_strdup(option_name);
         }
     }
     else
