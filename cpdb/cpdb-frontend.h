@@ -651,6 +651,17 @@ cpdb_printer_obj_t *cpdbResurrectPrinterFromFile(const char *file);
 char *cpdbGetOptionTranslation(cpdb_printer_obj_t *printer_obj, const char *option_name, const char *lang);
 
 /**
+ * Similar to cpdbGetOptionTranslation but onlyy for use with cpdbGetAllTranslations.
+ * 
+ * @param printer_obj       Printer object
+ * @param option_name       Option name
+ * @param lang              BCP47 language tag to be used for translation
+ * 
+ * @return                  Translated name
+ */
+char *cpdbGetOptionTranslationFromTable(cpdb_printer_obj_t *printer_obj, const char *option_name, const char *lang);
+
+/**
  * Get the translation for an option value provided by a printer.
  * 
  * @param printer_obj       Printer object
@@ -661,6 +672,18 @@ char *cpdbGetOptionTranslation(cpdb_printer_obj_t *printer_obj, const char *opti
  * @return                  Translated value
  */
 char *cpdbGetChoiceTranslation(cpdb_printer_obj_t *printer_obj, const char *option_name, const char *choice_name, const char *lang);
+
+/**
+ * Similar to cpdbGetChoiceTranslation but onlyy for use with cpdbGetAllTranslations.
+ * 
+ * @param printer_obj       Printer object
+ * @param option_name       Option name
+ * @param choice_name       Option value
+ * @param lang              BCP47 language tag to be used for translation
+ * 
+ * @return                  Translated value
+ */
+char *cpdbGetChoiceTranslationFromTable(cpdb_printer_obj_t *printer_obj, const char *option_name, const char *choice_name, const char *lang);
 
 /**
  * Get the translation for an option group provided by a printer.
