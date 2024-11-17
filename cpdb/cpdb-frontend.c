@@ -19,10 +19,6 @@ static void                 cpdbUnpackOptions               (int                
                                                              int                        num_media,
                                                              GVariant *                 media_var,
                                                              cpdb_options_t *           options);
-static void                 cpdbUnpackJobArray              (GVariant *                 var,
-                                                             int                        num_jobs,
-                                                             cpdb_job_t *               jobs,
-                                                             char *                     backend_name);
 static GHashTable *         cpdbUnpackTranslations          (GVariant *                 translations);
 static void                 add_to_hash_table               (gpointer                   key,
                                                              gpointer                   value, 
@@ -32,6 +28,11 @@ static void                 add_to_hash_table               (gpointer           
 ________________________________________________ cpdb_frontend_obj_t __________________________________________
 
 **/
+
+static void free_printer_object(void* printer)
+{
+    cpdbDeletePrinterObj(printer);
+}
 
 cpdb_frontend_obj_t *cpdbGetNewFrontendObj(cpdb_printer_callback printer_cb)
 {
@@ -48,7 +49,7 @@ cpdb_frontend_obj_t *cpdbGetNewFrontendObj(cpdb_printer_callback printer_cb)
     f->printer = g_hash_table_new_full(g_str_hash,
                                        g_str_equal,
                                        free,
-                                       g_free);
+                                       free_printer_object);
     f->last_saved_settings = cpdbReadSettingsFromDisk();
     return f;
 }
@@ -181,7 +182,6 @@ GDBusConnection *cpdbGetDbusConnection()
 
 void cpdbConnectToDBus(cpdb_frontend_obj_t *f)
 {
-    GMainContext *context;
     GError *error = NULL;
 
     if ((f->connection = cpdbGetDbusConnection()) == NULL)
@@ -237,6 +237,10 @@ void stopListingLookup(gpointer key, gpointer value, gpointer user_data){
     PrintBackend *proxy = value;
     GError *error = NULL; 
     print_backend_call_do_listing_sync(proxy, false, NULL, &error);
+    if (error) {
+        logerror("Error in DBus call doListing: %s\n", error->message);
+        g_error_free(error);
+    }
 }
 
 void cpdbDisconnectFromDBus(cpdb_frontend_obj_t *f)
@@ -329,7 +333,6 @@ bool cpdbRefreshPrinterList(cpdb_frontend_obj_t *f, const char *backend)
         // Compare the backend_name with the provided one 
         if (strcmp(backend_name, backend) == 0) { 
             // Check if backend_name is not in the printers hashtable 
-            char *printer_name = cpdbConcatSep(printer_obj->id, backend_name); 
             g_variant_iter_init(&iter, printers); 
             int printer_exists = 0;
             while (g_variant_iter_loop(&iter, "(v)", &printer)) 
@@ -428,6 +431,7 @@ void cpdbActivateBackends(cpdb_frontend_obj_t *f) {
                 g_hash_table_remove(existing_backends, backend_suffix);
                 g_free(backend_suffix);
             }
+            g_free(service_name);
         }
 
         g_variant_unref(service_names);
@@ -458,6 +462,7 @@ gpointer background_thread(gpointer user_data) {
         if (f->stop_flag) break;
         cpdbActivateBackends(f);
     }
+    return NULL;
 }
 
 // Start the background thread
@@ -488,24 +493,19 @@ void cpdbStopListingPrinters(cpdb_frontend_obj_t *f){
 PrintBackend *cpdbCreateBackend(GDBusConnection *connection,
                                 const char *service_name)
 {
-    FILE *file = NULL;
     PrintBackend *proxy;
     GError *error = NULL;
-    char *path, *backend_name;
-    const char *info_dir_name;
-    char obj_path[CPDB_BSIZE];
-    
-    backend_name = g_strdup(service_name);
+
     proxy = print_backend_proxy_new_sync(connection,
                                          0,
-                                         backend_name,
+                                         service_name,
                                          CPDB_BACKEND_OBJ_PATH,
                                          NULL,
                                          &error);
     if (error)
     {
         logerror("Error creating backend proxy for %s : %s\n",
-                    backend_name, error->message);
+                    service_name, error->message);
         return NULL;
     }
     return proxy;
@@ -598,6 +598,7 @@ void getAllPrintersLookup(gpointer key, gpointer value, gpointer user_data){
         p = cpdbGetNewPrinterObj();
         cpdbFillBasicOptions(p, printer);
         cpdbPrintBasicOptions(p);
+        cpdbDeletePrinterObj(p);
     }
 }
 
@@ -756,7 +757,7 @@ cpdb_printer_obj_t *cpdbGetDefaultPrinter(cpdb_frontend_obj_t *f)
     GHashTableIter iter;
     char *conf_dir, *path, *printer_id, *backend_name;
     cpdb_printer_obj_t *default_printer = NULL;
-    GList *printer, *user_printers, *system_printers, *printers = NULL;
+    GList *printer, *printers = NULL;
 
     if (f->num_printers == 0 || f->num_backends == 0)
     {
@@ -944,8 +945,15 @@ void cpdbDeletePrinterObj(cpdb_printer_obj_t *p)
         return;
     
     logdebug("Deleting printer object %s\n", p->id);
-    if (p->backend_name)
-        free(p->backend_name);
+
+    g_free(p->backend_name);
+    g_free(p->id);
+    g_free(p->name);
+    g_free(p->location);
+    g_free(p->info);
+    g_free(p->state);
+    g_free(p->make_and_model);
+
     if (p->backend_proxy)
         g_object_unref(p->backend_proxy);
     if (p->options)
@@ -1146,6 +1154,7 @@ char *cpdbPrintFileWithJobTitle(cpdb_printer_obj_t *p,
     if (fd == -1) {
         logerror("Error connecting to backend for printing file %s on %s %s: %s\n",
                  file_path, p->id, p->backend_name, strerror(errno));
+        g_free(socket_path);
         return NULL;
     }
 
@@ -1154,6 +1163,7 @@ char *cpdbPrintFileWithJobTitle(cpdb_printer_obj_t *p,
         close(fd);
         logerror("Error opening file %s on %s %s: %s\n",
                  file_path, p->id, p->backend_name, strerror(errno));
+        g_free(socket_path);
         return NULL;
     }
 
@@ -1165,6 +1175,7 @@ char *cpdbPrintFileWithJobTitle(cpdb_printer_obj_t *p,
             fclose(file);
             close(fd);
             unlink(socket_path);
+            g_free(socket_path);
             logerror("Error sending file %s on %s %s: %s\n",
                      file_path, p->id, p->backend_name, strerror(errno));
             return NULL;
@@ -1174,6 +1185,7 @@ char *cpdbPrintFileWithJobTitle(cpdb_printer_obj_t *p,
     fclose(file);
     close(fd);
     unlink(socket_path);
+    g_free(socket_path);
 
     return jobid;
 }
@@ -1429,7 +1441,6 @@ cpdb_printer_obj_t *cpdbResurrectPrinterFromFile(const char *filename)
 
     fclose(fp);
     free(path);
-    free(service_name);
     free(previous_parent_dialog);
     return p;
 
@@ -1490,7 +1501,7 @@ char *cpdbGetOptionTranslation(cpdb_printer_obj_t *p,
     
     logdebug("Obtained translation=%s; for option=%s;locale=%s;printer=%s#%s;\n",
                 translation, option_name, locale, p->id, p->backend_name);
-    return g_strdup(translation);
+    return translation;
 }
 
 char *cpdbGetChoiceTranslation(cpdb_printer_obj_t *p,
@@ -1542,7 +1553,7 @@ char *cpdbGetChoiceTranslation(cpdb_printer_obj_t *p,
     logdebug("Obtained translation=%s; for option=%s;choice=%s;locale=%s;printer=%s#%s;\n",
                 translation, option_name, choice_name, locale, 
                 p->id, p->backend_name);
-    return g_strdup(translation);
+    return translation;
 }
 
 
@@ -1590,7 +1601,7 @@ char *cpdbGetGroupTranslation(cpdb_printer_obj_t *p,
     
     logdebug("Obtained translation=%s; for group=%s;locale=%s;printer=%s#%s;\n",
                 translation, group_name, locale, p->id, p->backend_name);
-    return g_strdup(translation);
+    return translation;
 }
 
 void cpdbGetAllTranslations(cpdb_printer_obj_t *p,
@@ -1978,6 +1989,7 @@ GVariant *cpdbSerializeToGVariant(cpdb_settings_t *s)
         g_variant_builder_add(builder, "(ss)", "NA", "NA");
 
     variant = g_variant_new("a(ss)", builder);
+    g_variant_builder_unref(builder);
     return variant;
 }
 
@@ -2121,7 +2133,11 @@ void cpdbDeleteOption(cpdb_option_t *opt)
     if (opt->group_name)
         free(opt->group_name);
     if (opt->supported_values)
+    {
+        for (int i = 0; i < opt->num_supported; i++)
+            free(opt->supported_values[i]);
         free(opt->supported_values);
+    }
     if (opt->default_value)
         free(opt->default_value);
 
@@ -2144,49 +2160,6 @@ void cpdbDeleteMedia(cpdb_media_t *media)
 }
 
 /**
- * ________________________________ cpdb_job_t __________________________
- */
-void cpdbUnpackJobArray(GVariant *var,
-                        int num_jobs,
-                        cpdb_job_t *jobs,
-                        char *backend_name)
-{
-    int i;
-    char *str;
-    GVariantIter *iter;
-    g_variant_get(var, CPDB_JOB_ARRAY_ARGS, &iter);
-    int size;
-    char *jobid, *title, *printer, *user, *state, *submit_time;
-    for (i = 0; i < num_jobs; i++)
-    {
-        g_variant_iter_loop(iter,
-                            CPDB_JOB_ARGS,
-                            &jobid,
-                            &title,
-                            &printer,
-                            &user,
-                            &state,
-                            &submit_time,
-                            &size);
-        logdebug("jobid=%s;\n", jobid);
-        jobs[i].job_id = g_strdup(jobid);
-        logdebug("title=%s;\n", title);
-        jobs[i].title = g_strdup(title);
-        logdebug("printer=%s;\n", printer);
-        jobs[i].printer_id = g_strdup(printer);
-        logdebug("backend_name=%s;\n", backend_name);
-        jobs[i].backend_name = backend_name;
-        logdebug("user=%s;\n", user);
-        jobs[i].user = g_strdup(user);
-        logdebug("state=%s;\n", state);
-        jobs[i].state = g_strdup(state);
-        logdebug("submit_time=%s;\n", submit_time);
-        jobs[i].submitted_at = g_strdup(submit_time);
-        logdebug("size=%d;\n", size);
-        jobs[i].size = size;
-    }
-}
-/**
  * ________________________________utility functions__________________________
  */
 
@@ -2198,7 +2171,6 @@ void cpdbUnpackOptions(int num_options,
 {
     cpdb_option_t *opt;
     cpdb_media_t *media;
-    char buf[CPDB_BSIZE];
     int i, j, num, width, length, l, r, t, b;
     GVariantIter *iter, *sub_iter;
     char *str, *name, *def, *group;
